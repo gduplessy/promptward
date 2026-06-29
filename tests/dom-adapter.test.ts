@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findEditorIn, inputHandle } from "../src/content/dom-adapter";
+import { findEditorIn, inputHandle, submitNative } from "../src/content/dom-adapter";
 
 describe("DOM adapter", () => {
   it("extracts and replaces textarea text", () => {
@@ -20,5 +20,20 @@ describe("DOM adapter", () => {
     handle?.setText("Safe");
 
     expect(handle?.getText()).toBe("Safe");
+  });
+
+  it("replays native form submits", () => {
+    document.body.innerHTML = `<form><textarea>Hello</textarea><button type="submit">Send</button></form>`;
+    const form = document.querySelector("form");
+    if (!form) throw new Error("missing form");
+    let submitted = false;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitted = true;
+    });
+
+    submitNative(form);
+
+    expect(submitted).toBe(true);
   });
 });

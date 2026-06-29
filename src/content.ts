@@ -8,12 +8,12 @@ const inFlight = new WeakSet<HTMLElement>();
 
 document.addEventListener("click", onClickCapture, true);
 document.addEventListener("keydown", onKeydownCapture, true);
+document.addEventListener("submit", onSubmitCapture, true);
 
 function onClickCapture(event: MouseEvent): void {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
-  if (!isSubmitControl(target)) return;
-  void protectAndMaybeSubmit(event, target, findEditor(target));
+  const trigger = findSubmitTrigger(event.target);
+  if (!trigger) return;
+  void protectAndMaybeSubmit(event, trigger, findEditor(trigger));
 }
 
 function onKeydownCapture(event: KeyboardEvent): void {
@@ -22,6 +22,12 @@ function onKeydownCapture(event: KeyboardEvent): void {
   const editor = findEditor(event.target);
   if (!editor) return;
   void protectAndMaybeSubmit(event, editor.element, editor);
+}
+
+function onSubmitCapture(event: SubmitEvent): void {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement)) return;
+  void protectAndMaybeSubmit(event, form, findEditor(form));
 }
 
 async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor: EditorHandle | undefined): Promise<void> {
@@ -99,6 +105,13 @@ function replay(trigger: HTMLElement): void {
   submitNative(trigger);
 }
 
+function findSubmitTrigger(target: EventTarget | null): HTMLElement | undefined {
+  if (!(target instanceof Element)) return undefined;
+  const control = target.closest("button,input,[role='button']");
+  if (!(control instanceof HTMLElement)) return undefined;
+  return isSubmitControl(control) ? control : undefined;
+}
+
 function isSubmitControl(element: HTMLElement): boolean {
   if (element instanceof HTMLButtonElement) {
     return element.type === "submit" || /send|submit/i.test(element.ariaLabel ?? element.textContent ?? "");
@@ -106,6 +119,5 @@ function isSubmitControl(element: HTMLElement): boolean {
   if (element instanceof HTMLInputElement) {
     return element.type === "submit" || element.type === "button";
   }
-  const button = element.closest("button,[role='button']");
-  return Boolean(button && /send|submit/i.test(button.getAttribute("aria-label") ?? button.textContent ?? ""));
+  return /send|submit/i.test(element.getAttribute("aria-label") ?? element.textContent ?? "");
 }

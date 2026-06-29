@@ -65,6 +65,11 @@ export function contentEditableHandle(element: HTMLElement): EditorHandle {
 }
 
 export function submitNative(trigger: HTMLElement): void {
+  if (trigger instanceof HTMLFormElement) {
+    trigger.requestSubmit();
+    return;
+  }
+
   if (trigger instanceof HTMLButtonElement || trigger instanceof HTMLInputElement) {
     trigger.click();
     return;
