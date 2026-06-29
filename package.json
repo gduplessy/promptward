@@ -1,0 +1,31 @@
+{
+  "name": "promptward",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first prompt PII guard Chrome extension powered by Rampart.",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run verify:assets && tsc -p tsconfig.json --noEmit && vite build",
+    "test": "vitest run",
+    "verify:assets": "node scripts/verify-assets.mjs",
+    "vendor:ort": "node scripts/vendor-ort.mjs",
+    "vendor:rampart": "node scripts/vendor-rampart-model.mjs",
+    "package": "npm run build && node scripts/package-extension.mjs"
+  },
+  "dependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.32",
+    "@huggingface/transformers": "3.7.5",
+    "@nationaldesignstudio/rampart": "0.1.1",
+    "onnxruntime-web": "^1.22.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.326",
+    "@types/node": "^24.0.8",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.4",
+    "yazl": "^3.3.1"
+  }
+}
