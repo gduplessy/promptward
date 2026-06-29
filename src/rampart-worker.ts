@@ -1,18 +1,19 @@
-import { env } from "@huggingface/transformers";
-import { createGuard, detectNer, loadNerClassifier, type ChatGuard, type NerDetector, type TokenClassifier } from "@nationaldesignstudio/rampart";
+import { env, pipeline } from "@huggingface/transformers";
+import { createGuard, detectNer, type ChatGuard, type NerDetector, type TokenClassifier } from "@nationaldesignstudio/rampart";
 import type { PlaceholderSummary } from "./shared/messages";
 
 type WorkerRequest =
-  | { id: string; type: "protect"; text: string; conversationKey: string; modelUrl: string }
+  | { id: string; type: "protect"; text: string; conversationKey: string; modelBaseUrl: string; ortBaseUrl: string }
   | { id: string; type: "reveal"; text: string; conversationKey: string }
-  | { id: string; type: "prewarm"; modelUrl: string }
+  | { id: string; type: "prewarm"; modelBaseUrl: string; ortBaseUrl: string }
   | { id: string; type: "reset"; conversationKey: string };
 
-configureLocalRuntime();
+const LOCAL_MODEL_ID = "rampart";
 
 let classifierPromise: Promise<TokenClassifier> | undefined;
 let detector: NerDetector | undefined;
 let coldStartPromise: Promise<number> | undefined;
+let configuredPaths: { modelBaseUrl: string; ortBaseUrl: string } | undefined;
 const guards = new Map<string, ChatGuard>();
 
 self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
@@ -28,26 +29,30 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
     });
 });
 
-function configureLocalRuntime(): void {
+function configureLocalRuntime(modelBaseUrl: string, ortBaseUrl: string): void {
+  if (configuredPaths?.modelBaseUrl === modelBaseUrl && configuredPaths.ortBaseUrl === ortBaseUrl) return;
+  if (classifierPromise) throw new Error("Cannot reconfigure Rampart assets after model initialization");
+
   env.allowRemoteModels = false;
   env.allowLocalModels = true;
-  env.localModelPath = new URL("../models/", import.meta.url).href;
+  env.localModelPath = modelBaseUrl;
   const wasm = env.backends.onnx.wasm;
   if (!wasm) throw new Error("Transformers ONNX WASM backend is unavailable");
-  wasm.wasmPaths = new URL("../ort/", import.meta.url).href;
+  wasm.wasmPaths = ortBaseUrl;
   wasm.proxy = false;
   wasm.numThreads = 1;
+  configuredPaths = { modelBaseUrl, ortBaseUrl };
 }
 
 async function handleRequest(request: WorkerRequest): Promise<Record<string, unknown>> {
   switch (request.type) {
     case "prewarm": {
-      const coldStartMs = await prewarm(request.modelUrl);
+      const coldStartMs = await prewarm(request.modelBaseUrl, request.ortBaseUrl);
       return { status: "ready", coldStartMs };
     }
     case "protect": {
       const start = performance.now();
-      const guard = await getGuard(request.conversationKey, request.modelUrl);
+      const guard = await getGuard(request.conversationKey, request.modelBaseUrl, request.ortBaseUrl);
       const result = await guard.protect(request.text);
       const placeholders = summarizePlaceholders(result.placeholders);
       return {
@@ -72,11 +77,12 @@ async function handleRequest(request: WorkerRequest): Promise<Record<string, unk
   }
 }
 
-async function prewarm(modelUrl: string): Promise<number> {
+async function prewarm(modelBaseUrl: string, ortBaseUrl: string): Promise<number> {
+  configureLocalRuntime(modelBaseUrl, ortBaseUrl);
   if (!coldStartPromise) {
     coldStartPromise = (async () => {
       const start = performance.now();
-      classifierPromise = loadNerClassifier({ model: modelUrl, device: "wasm" });
+      classifierPromise = loadLocalNerClassifier();
       const classifier = await classifierPromise;
       detector = (text: string) => detectNer(text, classifier);
       return Math.round(performance.now() - start);
@@ -85,10 +91,28 @@ async function prewarm(modelUrl: string): Promise<number> {
   return coldStartPromise;
 }
 
-async function getGuard(conversationKey: string, modelUrl: string): Promise<ChatGuard> {
+async function loadLocalNerClassifier(): Promise<TokenClassifier> {
+  const classifier = (await pipeline("token-classification", LOCAL_MODEL_ID, {
+    dtype: "q4",
+    device: "wasm",
+    local_files_only: true
+  })) as unknown as TokenClassifier & {
+    tokenizer?: { encode?: (text: string, options: { add_special_tokens: boolean }) => unknown[] };
+  };
+
+  const adapter: TokenClassifier = (text, opts) => classifier(text, opts);
+  const tokenizer = classifier.tokenizer;
+  if (tokenizer?.encode) {
+    const encode = tokenizer.encode;
+    adapter.countTokens = (text) => encode(text, { add_special_tokens: false }).length;
+  }
+  return adapter;
+}
+
+async function getGuard(conversationKey: string, modelBaseUrl: string, ortBaseUrl: string): Promise<ChatGuard> {
   const existing = guards.get(conversationKey);
   if (existing) return existing;
-  await prewarm(modelUrl);
+  await prewarm(modelBaseUrl, ortBaseUrl);
   if (!detector) throw new Error("Rampart detector did not initialize");
   const guard = await createGuard({ ner: detector });
   guards.set(conversationKey, guard);

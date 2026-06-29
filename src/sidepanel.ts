@@ -74,7 +74,7 @@ function bind(settings: PromptWardSettings): void {
   appRoot.querySelector<HTMLButtonElement>("#prewarm")?.addEventListener("click", async () => {
     await render("Loading model");
     const response = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.prewarmModel })) as PrewarmModelResponse;
-    await render(response.ok ? `Ready in ${response.coldStartMs ?? 0} ms` : "Model failed");
+    await render(response.ok ? `Ready in ${response.coldStartMs ?? 0} ms` : `Model failed: ${response.error ?? "Unknown error"}`);
   });
 
   appRoot.querySelector<HTMLFormElement>("#custom-form")?.addEventListener("submit", async (event) => {

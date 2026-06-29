@@ -5,9 +5,9 @@ import {
 } from "./shared/messages";
 
 type WorkerRequest =
-  | { id: string; type: "protect"; text: string; conversationKey: string; modelUrl: string }
+  | { id: string; type: "protect"; text: string; conversationKey: string; modelBaseUrl: string; ortBaseUrl: string }
   | { id: string; type: "reveal"; text: string; conversationKey: string }
-  | { id: string; type: "prewarm"; modelUrl: string }
+  | { id: string; type: "prewarm"; modelBaseUrl: string; ortBaseUrl: string }
   | { id: string; type: "reset"; conversationKey: string };
 
 type WorkerResponse =
@@ -46,12 +46,18 @@ async function handleMessage(message: unknown): Promise<unknown> {
 
   switch (message.type) {
     case MESSAGE_TYPES.prewarmModel:
-      return postWorker({ id: crypto.randomUUID(), type: "prewarm", modelUrl: chrome.runtime.getURL("models/rampart/") });
+      return postWorker({
+        id: crypto.randomUUID(),
+        type: "prewarm",
+        modelBaseUrl: chrome.runtime.getURL("models/"),
+        ortBaseUrl: chrome.runtime.getURL("ort/")
+      });
     case MESSAGE_TYPES.protectText:
       return postWorker({
         id: crypto.randomUUID(),
         type: "protect",
-        modelUrl: chrome.runtime.getURL("models/rampart/"),
+        modelBaseUrl: chrome.runtime.getURL("models/"),
+        ortBaseUrl: chrome.runtime.getURL("ort/"),
         text: message.text,
         conversationKey: message.conversationKey
       });

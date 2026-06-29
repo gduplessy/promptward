@@ -12,7 +12,7 @@ export const KNOWN_AI_MATCHES = [
 export const manifest: ManifestV3Export = {
   manifest_version: 3,
   name: "PromptWard",
-  version: "0.1.0",
+  version: "0.2.0",
   description: "Redact prompt PII locally before sending text to AI chat products.",
   minimum_chrome_version: "116",
   action: {
