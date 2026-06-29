@@ -103,8 +103,7 @@ async function loadLocalNerClassifier(): Promise<TokenClassifier> {
   const adapter: TokenClassifier = (text, opts) => classifier(text, opts);
   const tokenizer = classifier.tokenizer;
   if (tokenizer?.encode) {
-    const encode = tokenizer.encode;
-    adapter.countTokens = (text) => encode(text, { add_special_tokens: false }).length;
+    adapter.countTokens = (text) => tokenizer.encode?.(text, { add_special_tokens: false }).length ?? 0;
   }
   return adapter;
 }
