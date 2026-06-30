@@ -20,7 +20,7 @@ async function render(status = "Idle"): Promise<void> {
     <section class="shell">
       <header>
         <h1>PromptWard</h1>
-        <span class="status">${escapeHtml(status)}</span>
+        <span id="status" class="status">${escapeHtml(status)}</span>
       </header>
 
       <section class="group">
@@ -59,7 +59,7 @@ async function render(status = "Idle"): Promise<void> {
           <button id="clear-debug" type="button">Clear</button>
           <button id="refresh-debug" type="button">Refresh</button>
         </div>
-        <div class="debug-list">
+        <div id="debug-list" class="debug-list">
           ${debugRows(debugLogs.events)}
         </div>
       </section>
@@ -99,9 +99,7 @@ function bind(settings: PromptWardSettings): void {
   });
 
   appRoot.querySelector<HTMLButtonElement>("#prewarm")?.addEventListener("click", async () => {
-    await render("Loading model");
-    const response = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.prewarmModel })) as PrewarmModelResponse;
-    await render(response.ok ? `Ready in ${response.coldStartMs ?? 0} ms` : `Model failed: ${response.error ?? "Unknown error"}`);
+    await startPrewarm();
   });
 
   appRoot.querySelector<HTMLInputElement>("#raw-diagnostics")?.addEventListener("change", async (event) => {
@@ -161,6 +159,35 @@ function bind(settings: PromptWardSettings): void {
       await render("Domain removed");
     });
   });
+}
+
+async function startPrewarm(): Promise<void> {
+  await render("Loading model");
+  const timer = setInterval(() => {
+    void refreshDiagnosticsWhileLoading();
+  }, 1000);
+  const response = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.prewarmModel })) as PrewarmModelResponse;
+  clearInterval(timer);
+  await render(response.ok ? `Ready in ${response.coldStartMs ?? 0} ms` : `Model failed: ${response.error ?? "Unknown error"}`);
+}
+
+async function refreshDiagnosticsWhileLoading(): Promise<void> {
+  const logs = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.getDebugLogs })) as DebugLogsResponse;
+  const list = appRoot.querySelector<HTMLDivElement>("#debug-list");
+  if (list) list.innerHTML = debugRows(logs.events);
+
+  const status = appRoot.querySelector<HTMLSpanElement>("#status");
+  if (!status) return;
+  const latest = [...logs.events].reverse().find((event) =>
+    ["model-load-progress", "runtime-configured", "prewarm-start"].includes(event.stage)
+  );
+  if (!latest) {
+    status.textContent = "Loading model";
+    return;
+  }
+  const file = typeof latest.metadata.file === "string" ? latest.metadata.file : undefined;
+  const progress = typeof latest.metadata.progress === "number" ? ` ${latest.metadata.progress}%` : "";
+  status.textContent = file ? `Loading ${file}${progress}` : `Loading: ${latest.stage}`;
 }
 
 function domainRow(host: string, settings: PromptWardSettings): string {

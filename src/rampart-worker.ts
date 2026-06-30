@@ -175,7 +175,15 @@ async function loadLocalNerClassifier(): Promise<TokenClassifier> {
   const classifier = (await pipeline("token-classification", LOCAL_MODEL_ID, {
     dtype: "q4",
     device: "wasm",
-    local_files_only: true
+    local_files_only: true,
+    progress_callback: (progress: unknown) => {
+      logDebug({
+        debugId: "model-load",
+        stage: "model-load-progress",
+        level: "debug",
+        metadata: sanitizeProgress(progress)
+      });
+    }
   })) as unknown as TokenClassifier & {
     tokenizer?: { encode?: (text: string, options: { add_special_tokens: boolean }) => unknown[] };
   };
@@ -186,6 +194,19 @@ async function loadLocalNerClassifier(): Promise<TokenClassifier> {
     adapter.countTokens = (text) => tokenizer.encode?.(text, { add_special_tokens: false }).length ?? 0;
   }
   return adapter;
+}
+
+function sanitizeProgress(progress: unknown): Record<string, unknown> {
+  if (!progress || typeof progress !== "object") return { progress };
+  const value = progress as Record<string, unknown>;
+  return {
+    status: value.status,
+    name: value.name,
+    file: value.file,
+    progress: typeof value.progress === "number" ? Math.round(value.progress) : value.progress,
+    loaded: value.loaded,
+    total: value.total
+  };
 }
 
 async function getGuard(conversationKey: string, modelBaseUrl: string, ortBaseUrl: string): Promise<ChatGuard> {
