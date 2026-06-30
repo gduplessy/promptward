@@ -1,5 +1,11 @@
 import { BUILT_IN_HOSTS, DEFAULT_SETTINGS, loadSettings, normalizeHost } from "./shared/settings";
-import { MESSAGE_TYPES, type PrewarmModelResponse, type PromptWardSettings } from "./shared/messages";
+import {
+  MESSAGE_TYPES,
+  type DebugLogsResponse,
+  type DebugSettingsResponse,
+  type PrewarmModelResponse,
+  type PromptWardSettings
+} from "./shared/messages";
 import "./sidepanel.css";
 
 const appRoot = getAppRoot();
@@ -8,6 +14,8 @@ void render();
 
 async function render(status = "Idle"): Promise<void> {
   const settings = await loadSettings();
+  const debugSettings = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.getDebugSettings })) as DebugSettingsResponse;
+  const debugLogs = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.getDebugLogs })) as DebugLogsResponse;
   appRoot.innerHTML = `
     <section class="shell">
       <header>
@@ -35,6 +43,25 @@ async function render(status = "Idle"): Promise<void> {
       <section class="group">
         <h2>Model</h2>
         <button id="prewarm" type="button">Prewarm local model</button>
+      </section>
+
+      <section class="group">
+        <h2>Diagnostics</h2>
+        <label class="row">
+          <span>
+            <strong>Raw local diagnostics</strong>
+            <small>Logs prompt text locally in DevTools and session diagnostics.</small>
+          </span>
+          <input id="raw-diagnostics" type="checkbox" ${debugSettings.rawDiagnosticsEnabled ? "checked" : ""} />
+        </label>
+        <div class="actions">
+          <button id="copy-debug" type="button">Copy JSON</button>
+          <button id="clear-debug" type="button">Clear</button>
+          <button id="refresh-debug" type="button">Refresh</button>
+        </div>
+        <div class="debug-list">
+          ${debugRows(debugLogs.events)}
+        </div>
       </section>
 
       <section class="group">
@@ -75,6 +102,29 @@ function bind(settings: PromptWardSettings): void {
     await render("Loading model");
     const response = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.prewarmModel })) as PrewarmModelResponse;
     await render(response.ok ? `Ready in ${response.coldStartMs ?? 0} ms` : `Model failed: ${response.error ?? "Unknown error"}`);
+  });
+
+  appRoot.querySelector<HTMLInputElement>("#raw-diagnostics")?.addEventListener("change", async (event) => {
+    await chrome.runtime.sendMessage({
+      type: MESSAGE_TYPES.setDebugSettings,
+      rawDiagnosticsEnabled: (event.target as HTMLInputElement).checked
+    });
+    await render("Diagnostics saved");
+  });
+
+  appRoot.querySelector<HTMLButtonElement>("#clear-debug")?.addEventListener("click", async () => {
+    await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.clearDebugLogs });
+    await render("Diagnostics cleared");
+  });
+
+  appRoot.querySelector<HTMLButtonElement>("#refresh-debug")?.addEventListener("click", async () => {
+    await render("Diagnostics refreshed");
+  });
+
+  appRoot.querySelector<HTMLButtonElement>("#copy-debug")?.addEventListener("click", async () => {
+    const logs = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.getDebugLogs })) as DebugLogsResponse;
+    await navigator.clipboard.writeText(JSON.stringify(logs.events, null, 2));
+    await render("Diagnostics copied");
   });
 
   appRoot.querySelector<HTMLFormElement>("#custom-form")?.addEventListener("submit", async (event) => {
@@ -134,6 +184,28 @@ function customDomainRow(host: string, settings: PromptWardSettings): string {
       <button type="button" data-remove-domain="${escapeHtml(host)}">Remove</button>
     </div>
   `;
+}
+
+function debugRows(events: DebugLogsResponse["events"]): string {
+  if (events.length === 0) return `<p class="empty">No diagnostics yet.</p>`;
+  return events
+    .slice(-20)
+    .reverse()
+    .map((event) => {
+      const rawKeys = event.raw ? Object.keys(event.raw).join(", ") : "";
+      return `
+        <article class="debug-row">
+          <div class="debug-head">
+            <strong>${escapeHtml(event.context)}:${escapeHtml(event.stage)}</strong>
+            <span>${new Date(event.ts ?? Date.now()).toLocaleTimeString()}</span>
+          </div>
+          <code>${escapeHtml(event.debugId)}</code>
+          <pre>${escapeHtml(JSON.stringify(event.metadata, null, 2))}</pre>
+          ${rawKeys ? `<small>raw: ${escapeHtml(rawKeys)}</small>` : ""}
+        </article>
+      `;
+    })
+    .join("");
 }
 
 function escapeHtml(value: string): string {

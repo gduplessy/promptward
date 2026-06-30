@@ -1,7 +1,9 @@
 import { findEditor, submitNative, type EditorHandle } from "./content/dom-adapter";
 import { showReviewModal } from "./content/review-modal";
+import { findSubmitTrigger } from "./content/submit-detection";
+import { APP_VERSION, textSummary, type DebugLogInput, type DebugSettings } from "./shared/debug";
 import { getConversationKey } from "./shared/conversation";
-import { MESSAGE_TYPES, type ProtectTextResponse } from "./shared/messages";
+import { MESSAGE_TYPES, type DebugSettingsResponse, type ProtectTextResponse } from "./shared/messages";
 
 const replaying = new WeakSet<HTMLElement>();
 const inFlight = new WeakSet<HTMLElement>();
@@ -9,9 +11,25 @@ const inFlight = new WeakSet<HTMLElement>();
 document.addEventListener("click", onClickCapture, true);
 document.addEventListener("keydown", onKeydownCapture, true);
 document.addEventListener("submit", onSubmitCapture, true);
+void logDebug({
+  debugId: "content-init",
+  stage: "listeners-installed",
+  level: "info",
+  metadata: { version: APP_VERSION, href: location.href }
+});
 
 function onClickCapture(event: MouseEvent): void {
   const trigger = findSubmitTrigger(event.target);
+  const debugId = crypto.randomUUID();
+  void logDebug({
+    debugId,
+    stage: trigger ? "click-captured" : "click-ignored",
+    level: trigger ? "debug" : "info",
+    metadata: {
+      target: describeElement(event.target),
+      trigger: trigger ? describeElement(trigger) : undefined
+    }
+  });
   if (!trigger) return;
   void protectAndMaybeSubmit(event, trigger, findEditor(trigger));
 }
@@ -20,20 +38,58 @@ function onKeydownCapture(event: KeyboardEvent): void {
   if (event.key !== "Enter") return;
   if (!(event.metaKey || event.ctrlKey || event.shiftKey === false)) return;
   const editor = findEditor(event.target);
+  const debugId = crypto.randomUUID();
+  void logDebug({
+    debugId,
+    stage: editor ? "keydown-captured" : "keydown-editor-missed",
+    level: editor ? "debug" : "warn",
+    metadata: {
+      key: event.key,
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      target: describeElement(event.target),
+      editor: editor ? describeElement(editor.element) : undefined
+    }
+  });
   if (!editor) return;
-  void protectAndMaybeSubmit(event, editor.element, editor);
+  void protectAndMaybeSubmit(event, editor.element, editor, debugId);
 }
 
 function onSubmitCapture(event: SubmitEvent): void {
   const form = event.target;
   if (!(form instanceof HTMLFormElement)) return;
-  void protectAndMaybeSubmit(event, form, findEditor(form));
+  const debugId = crypto.randomUUID();
+  const editor = findEditor(form);
+  void logDebug({
+    debugId,
+    stage: editor ? "submit-captured" : "submit-editor-missed",
+    level: editor ? "debug" : "warn",
+    metadata: {
+      form: describeElement(form),
+      editor: editor ? describeElement(editor.element) : undefined
+    }
+  });
+  void protectAndMaybeSubmit(event, form, editor, debugId);
 }
 
-async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor: EditorHandle | undefined): Promise<void> {
-  if (!editor) return;
+async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor: EditorHandle | undefined, debugId = crypto.randomUUID()): Promise<void> {
+  if (!editor) {
+    await logDebug({
+      debugId,
+      stage: "editor-missed",
+      level: "warn",
+      metadata: { eventType: event.type, trigger: describeElement(trigger) }
+    });
+    return;
+  }
   if (replaying.has(trigger)) {
     replaying.delete(trigger);
+    await logDebug({
+      debugId,
+      stage: "replay-allowed",
+      level: "debug",
+      metadata: { trigger: describeElement(trigger), eventType: event.type }
+    });
     return;
   }
   if (inFlight.has(trigger)) {
@@ -43,21 +99,68 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
   }
 
   const original = editor.getText();
-  if (!original.trim()) return;
+  const originalSummary = await textSummary(original);
+  await logDebug({
+    debugId,
+    stage: "editor-read",
+    level: "debug",
+    metadata: {
+      eventType: event.type,
+      trigger: describeElement(trigger),
+      editor: describeElement(editor.element),
+      ...originalSummary
+    },
+    raw: { original }
+  });
+  if (!original.trim()) {
+    await logDebug({
+      debugId,
+      stage: "empty-editor-ignored",
+      level: "info",
+      metadata: originalSummary
+    });
+    return;
+  }
 
   event.preventDefault();
   event.stopImmediatePropagation();
   inFlight.add(trigger);
 
   try {
-    const response = await protectText(original);
+    await logDebug({
+      debugId,
+      stage: "protect-request",
+      level: "debug",
+      metadata: originalSummary
+    });
+    const response = await protectText(original, debugId);
+    await logDebug({
+      debugId,
+      stage: "protect-response",
+      level: response.ok ? "debug" : "error",
+      metadata: {
+        ok: response.ok,
+        changed: response.ok ? response.changed : undefined,
+        durationMs: response.ok ? response.durationMs : undefined,
+        placeholderCount: response.ok ? response.placeholders.length : undefined,
+        error: response.error
+      },
+      raw: response.ok ? { redacted: response.safeText } : undefined
+    });
     if (!response.ok) {
-      await handleFailure(response.error ?? "Unable to redact prompt", original, trigger, editor);
+      await handleFailure(response.error ?? "Unable to redact prompt", original, trigger, editor, debugId);
       return;
     }
 
     if (!response.changed) {
-      replay(trigger);
+      await logDebug({
+        debugId,
+        stage: "unchanged-replay",
+        level: "warn",
+        metadata: { reason: "protect-returned-unchanged" },
+        raw: { original }
+      });
+      replay(trigger, debugId);
       return;
     }
 
@@ -69,55 +172,99 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
 
     if (decision === "confirm") {
       editor.setText(response.safeText);
-      replay(trigger);
+      const readback = editor.getText();
+      await logDebug({
+        debugId,
+        stage: "editor-set",
+        level: "debug",
+        metadata: {
+          ...(await textSummary(readback)),
+          readbackMatchesRedacted: readback === response.safeText
+        },
+        raw: { redacted: response.safeText, readback }
+      });
+      replay(trigger, debugId);
     } else {
       editor.setText(original);
+      await logDebug({
+        debugId,
+        stage: "review-cancelled",
+        level: "info",
+        metadata: {}
+      });
     }
   } finally {
     inFlight.delete(trigger);
   }
 }
 
-async function handleFailure(error: string, original: string, trigger: HTMLElement, editor: EditorHandle): Promise<void> {
+async function handleFailure(error: string, original: string, trigger: HTMLElement, editor: EditorHandle, debugId: string): Promise<void> {
   const decision = await showReviewModal({ original, error });
   if (decision === "retry") {
-    const response = await protectText(original);
+    const response = await protectText(original, debugId);
     if (response.ok && !response.changed) {
-      replay(trigger);
+      replay(trigger, debugId);
     } else if (response.ok) {
       editor.setText(response.safeText);
-      replay(trigger);
+      replay(trigger, debugId);
     }
   }
 }
 
-async function protectText(text: string): Promise<ProtectTextResponse> {
+async function protectText(text: string, debugId: string): Promise<ProtectTextResponse> {
   return chrome.runtime.sendMessage({
     type: MESSAGE_TYPES.protectText,
     text,
     conversationKey: getConversationKey({ url: location.href }),
-    url: location.href
+    url: location.href,
+    debugId
   });
 }
 
-function replay(trigger: HTMLElement): void {
+function replay(trigger: HTMLElement, debugId: string): void {
+  void logDebug({
+    debugId,
+    stage: "native-replay",
+    level: "debug",
+    metadata: { trigger: describeElement(trigger) }
+  });
   replaying.add(trigger);
   submitNative(trigger);
 }
 
-function findSubmitTrigger(target: EventTarget | null): HTMLElement | undefined {
-  if (!(target instanceof Element)) return undefined;
-  const control = target.closest("button,input,[role='button']");
-  if (!(control instanceof HTMLElement)) return undefined;
-  return isSubmitControl(control) ? control : undefined;
+async function logDebug(input: Omit<DebugLogInput, "context" | "url" | "version">): Promise<void> {
+  const settings = await getDebugSettings();
+  const event: DebugLogInput = {
+    ...input,
+    context: "content",
+    url: location.href,
+    version: APP_VERSION,
+    raw: settings.rawDiagnosticsEnabled ? input.raw : undefined
+  };
+  console.debug("[PromptWard]", event);
+  await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.debugLog, event }).catch(() => undefined);
 }
 
-function isSubmitControl(element: HTMLElement): boolean {
-  if (element instanceof HTMLButtonElement) {
-    return element.type === "submit" || /send|submit/i.test(element.ariaLabel ?? element.textContent ?? "");
-  }
-  if (element instanceof HTMLInputElement) {
-    return element.type === "submit" || element.type === "button";
-  }
-  return /send|submit/i.test(element.getAttribute("aria-label") ?? element.textContent ?? "");
+let debugSettingsPromise: Promise<DebugSettings> | undefined;
+
+async function getDebugSettings(): Promise<DebugSettings> {
+  debugSettingsPromise ??= chrome.runtime
+    .sendMessage({ type: MESSAGE_TYPES.getDebugSettings })
+    .then((settings: DebugSettingsResponse) => settings)
+    .catch(() => ({ rawDiagnosticsEnabled: false }));
+  return debugSettingsPromise;
+}
+
+function describeElement(target: EventTarget | null): Record<string, unknown> | undefined {
+  if (!(target instanceof Element)) return undefined;
+  return {
+    tag: target.tagName.toLowerCase(),
+    id: target.id || undefined,
+    role: target.getAttribute("role") || undefined,
+    ariaLabel: target.getAttribute("aria-label") || undefined,
+    testId: target.getAttribute("data-testid") || undefined,
+    type: target.getAttribute("type") || undefined,
+    disabled: target instanceof HTMLButtonElement || target instanceof HTMLInputElement ? target.disabled : undefined,
+    text: target.textContent?.trim().slice(0, 40) || undefined
+  };
 }

@@ -84,6 +84,12 @@ h2 {
   gap: 8px;
 }
 
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 input[type="text"] {
   min-width: 0;
   border: 1px solid #cbd5e1;
@@ -112,4 +118,47 @@ button {
   margin: 0;
   color: #64748b;
   font-size: 13px;
+}
+
+.debug-list {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.debug-row {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.debug-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.debug-head strong {
+  min-width: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.debug-head span,
+.debug-row small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.debug-row code,
+.debug-row pre {
+  margin: 0;
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }

@@ -1,10 +1,17 @@
+import type { DebugLogInput, DebugSettings } from "./debug";
+
 export const MESSAGE_TYPES = {
   prewarmModel: "PW_PREWARM_MODEL",
   protectText: "PW_PROTECT_TEXT",
   revealText: "PW_REVEAL_TEXT",
   getSettings: "PW_GET_SETTINGS",
   setSiteEnabled: "PW_SET_SITE_ENABLED",
-  resetConversation: "PW_RESET_CONVERSATION"
+  resetConversation: "PW_RESET_CONVERSATION",
+  debugLog: "PW_DEBUG_LOG",
+  getDebugLogs: "PW_GET_DEBUG_LOGS",
+  clearDebugLogs: "PW_CLEAR_DEBUG_LOGS",
+  getDebugSettings: "PW_GET_DEBUG_SETTINGS",
+  setDebugSettings: "PW_SET_DEBUG_SETTINGS"
 } as const;
 
 export type MessageType = (typeof MESSAGE_TYPES)[keyof typeof MESSAGE_TYPES];
@@ -30,6 +37,7 @@ export type ProtectTextMessage = {
   text: string;
   conversationKey: string;
   url: string;
+  debugId?: string;
 };
 
 export type RevealTextMessage = {
@@ -53,13 +61,40 @@ export type ResetConversationMessage = {
   conversationKey: string;
 };
 
+export type DebugLogMessage = {
+  type: typeof MESSAGE_TYPES.debugLog;
+  event: DebugLogInput;
+};
+
+export type GetDebugLogsMessage = {
+  type: typeof MESSAGE_TYPES.getDebugLogs;
+};
+
+export type ClearDebugLogsMessage = {
+  type: typeof MESSAGE_TYPES.clearDebugLogs;
+};
+
+export type GetDebugSettingsMessage = {
+  type: typeof MESSAGE_TYPES.getDebugSettings;
+};
+
+export type SetDebugSettingsMessage = {
+  type: typeof MESSAGE_TYPES.setDebugSettings;
+  rawDiagnosticsEnabled: boolean;
+};
+
 export type PromptWardMessage =
   | PrewarmModelMessage
   | ProtectTextMessage
   | RevealTextMessage
   | GetSettingsMessage
   | SetSiteEnabledMessage
-  | ResetConversationMessage;
+  | ResetConversationMessage
+  | DebugLogMessage
+  | GetDebugLogsMessage
+  | ClearDebugLogsMessage
+  | GetDebugSettingsMessage
+  | SetDebugSettingsMessage;
 
 export type PrewarmModelResponse = {
   ok: boolean;
@@ -87,6 +122,13 @@ export type SetSiteEnabledResponse = {
   ok: boolean;
 };
 
+export type DebugLogsResponse = {
+  ok: boolean;
+  events: DebugLogInput[];
+};
+
+export type DebugSettingsResponse = DebugSettings;
+
 export function isPromptWardMessage(value: unknown): value is PromptWardMessage {
   if (!value || typeof value !== "object") return false;
   const maybe = value as Record<string, unknown>;
@@ -95,6 +137,9 @@ export function isPromptWardMessage(value: unknown): value is PromptWardMessage 
   switch (maybe.type) {
     case MESSAGE_TYPES.prewarmModel:
     case MESSAGE_TYPES.getSettings:
+    case MESSAGE_TYPES.getDebugLogs:
+    case MESSAGE_TYPES.clearDebugLogs:
+    case MESSAGE_TYPES.getDebugSettings:
       return true;
     case MESSAGE_TYPES.protectText:
       return (
@@ -103,7 +148,8 @@ export function isPromptWardMessage(value: unknown): value is PromptWardMessage 
         typeof maybe.conversationKey === "string" &&
         maybe.conversationKey.length > 0 &&
         maybe.conversationKey.length <= 500 &&
-        typeof maybe.url === "string"
+        typeof maybe.url === "string" &&
+        (maybe.debugId === undefined || typeof maybe.debugId === "string")
       );
     case MESSAGE_TYPES.revealText:
       return (
@@ -116,7 +162,24 @@ export function isPromptWardMessage(value: unknown): value is PromptWardMessage 
       return typeof maybe.host === "string" && typeof maybe.enabled === "boolean";
     case MESSAGE_TYPES.resetConversation:
       return typeof maybe.conversationKey === "string" && maybe.conversationKey.length > 0;
+    case MESSAGE_TYPES.debugLog:
+      return isDebugLogInput(maybe.event);
+    case MESSAGE_TYPES.setDebugSettings:
+      return typeof maybe.rawDiagnosticsEnabled === "boolean";
     default:
       return false;
   }
+}
+
+function isDebugLogInput(value: unknown): value is DebugLogInput {
+  if (!value || typeof value !== "object") return false;
+  const maybe = value as Record<string, unknown>;
+  return (
+    typeof maybe.debugId === "string" &&
+    typeof maybe.context === "string" &&
+    typeof maybe.stage === "string" &&
+    typeof maybe.level === "string" &&
+    typeof maybe.metadata === "object" &&
+    maybe.metadata !== null
+  );
 }

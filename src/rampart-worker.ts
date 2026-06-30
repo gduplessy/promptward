@@ -1,11 +1,21 @@
 import { env, pipeline } from "@huggingface/transformers";
 import { createGuard, detectNer, type ChatGuard, type NerDetector, type TokenClassifier } from "@nationaldesignstudio/rampart";
 import type { PlaceholderSummary } from "./shared/messages";
+import { APP_VERSION, type DebugLogInput } from "./shared/debug";
 
 type WorkerRequest =
-  | { id: string; type: "protect"; text: string; conversationKey: string; modelBaseUrl: string; ortBaseUrl: string }
+  | {
+      id: string;
+      type: "protect";
+      text: string;
+      conversationKey: string;
+      modelBaseUrl: string;
+      ortBaseUrl: string;
+      debugId?: string;
+      rawDiagnosticsEnabled: boolean;
+    }
   | { id: string; type: "reveal"; text: string; conversationKey: string }
-  | { id: string; type: "prewarm"; modelBaseUrl: string; ortBaseUrl: string }
+  | { id: string; type: "prewarm"; modelBaseUrl: string; ortBaseUrl: string; debugId?: string; rawDiagnosticsEnabled: boolean }
   | { id: string; type: "reset"; conversationKey: string };
 
 const LOCAL_MODEL_ID = "rampart";
@@ -20,6 +30,14 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
   void handleRequest(event.data)
     .then((response) => self.postMessage({ id: event.data.id, ok: true, ...response }))
     .catch((error: unknown) => {
+      logDebug({
+        debugId: "debugId" in event.data && event.data.debugId ? event.data.debugId : event.data.id,
+        stage: `${event.data.type}-error`,
+        level: "error",
+        metadata: {
+          error: error instanceof Error ? error.message : "Rampart worker error"
+        }
+      });
       self.postMessage({
         id: event.data.id,
         ok: false,
@@ -42,24 +60,69 @@ function configureLocalRuntime(modelBaseUrl: string, ortBaseUrl: string): void {
   wasm.proxy = false;
   wasm.numThreads = 1;
   configuredPaths = { modelBaseUrl, ortBaseUrl };
+  logDebug({
+    debugId: "runtime",
+    stage: "runtime-configured",
+    level: "info",
+    metadata: {
+      modelBaseUrl,
+      ortBaseUrl,
+      allowRemoteModels: env.allowRemoteModels,
+      allowLocalModels: env.allowLocalModels
+    }
+  });
 }
 
 async function handleRequest(request: WorkerRequest): Promise<Record<string, unknown>> {
   switch (request.type) {
     case "prewarm": {
+      logDebug({
+        debugId: request.debugId ?? request.id,
+        stage: "prewarm-start",
+        level: "debug",
+        metadata: {}
+      });
       const coldStartMs = await prewarm(request.modelBaseUrl, request.ortBaseUrl);
+      logDebug({
+        debugId: request.debugId ?? request.id,
+        stage: "prewarm-end",
+        level: "info",
+        metadata: { coldStartMs }
+      });
       return { status: "ready", coldStartMs };
     }
     case "protect": {
       const start = performance.now();
+      logDebug({
+        debugId: request.debugId ?? request.id,
+        stage: "protect-start",
+        level: "debug",
+        metadata: {
+          textLength: request.text.length,
+          conversationKey: request.conversationKey
+        },
+        raw: request.rawDiagnosticsEnabled ? { original: request.text } : undefined
+      });
       const guard = await getGuard(request.conversationKey, request.modelBaseUrl, request.ortBaseUrl);
       const result = await guard.protect(request.text);
       const placeholders = summarizePlaceholders(result.placeholders);
+      const durationMs = Math.round(performance.now() - start);
+      logDebug({
+        debugId: request.debugId ?? request.id,
+        stage: "protect-end",
+        level: "debug",
+        metadata: {
+          changed: result.text !== request.text,
+          placeholderCount: placeholders.length,
+          durationMs
+        },
+        raw: request.rawDiagnosticsEnabled ? { redacted: result.text } : undefined
+      });
       return {
         safeText: result.text,
         changed: result.text !== request.text,
         placeholders,
-        durationMs: Math.round(performance.now() - start)
+        durationMs
       };
     }
     case "reveal": {
@@ -75,6 +138,17 @@ async function handleRequest(request: WorkerRequest): Promise<Record<string, unk
     default:
       throw new Error("Unsupported Rampart worker request");
   }
+}
+
+function logDebug(event: Omit<DebugLogInput, "context" | "version">): void {
+  self.postMessage({
+    type: "debug",
+    event: {
+      ...event,
+      context: "worker",
+      version: APP_VERSION
+    }
+  });
 }
 
 async function prewarm(modelBaseUrl: string, ortBaseUrl: string): Promise<number> {

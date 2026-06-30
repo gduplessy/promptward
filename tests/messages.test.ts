@@ -8,7 +8,8 @@ describe("message validation", () => {
         type: MESSAGE_TYPES.protectText,
         text: "hello",
         conversationKey: "1:0:https://chatgpt.com:/",
-        url: "https://chatgpt.com/"
+        url: "https://chatgpt.com/",
+        debugId: "debug-1"
       })
     ).toBe(true);
   });
@@ -26,5 +27,20 @@ describe("message validation", () => {
 
   it("rejects unknown message types", () => {
     expect(isPromptWardMessage({ type: "PW_UNKNOWN" })).toBe(false);
+  });
+
+  it("accepts debug messages", () => {
+    expect(
+      isPromptWardMessage({
+        type: MESSAGE_TYPES.debugLog,
+        event: {
+          debugId: "debug-1",
+          context: "content",
+          stage: "editor-read",
+          level: "debug",
+          metadata: { textLength: 10 }
+        }
+      })
+    ).toBe(true);
   });
 });
