@@ -53,6 +53,9 @@ function configureLocalRuntime(modelBaseUrl: string, ortBaseUrl: string): void {
 
   env.allowRemoteModels = false;
   env.allowLocalModels = true;
+  env.useBrowserCache = false;
+  env.useFSCache = false;
+  env.useCustomCache = false;
   env.localModelPath = modelBaseUrl;
   const wasm = env.backends.onnx.wasm;
   if (!wasm) throw new Error("Transformers ONNX WASM backend is unavailable");
@@ -68,7 +71,10 @@ function configureLocalRuntime(modelBaseUrl: string, ortBaseUrl: string): void {
       modelBaseUrl,
       ortBaseUrl,
       allowRemoteModels: env.allowRemoteModels,
-      allowLocalModels: env.allowLocalModels
+      allowLocalModels: env.allowLocalModels,
+      useBrowserCache: env.useBrowserCache,
+      useFSCache: env.useFSCache,
+      useCustomCache: env.useCustomCache
     }
   });
 }
