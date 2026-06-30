@@ -6,11 +6,36 @@ export function findSubmitTrigger(target: EventTarget | null): HTMLElement | und
 }
 
 export function isSubmitControl(element: HTMLElement): boolean {
+  if (isDisabledControl(element)) return false;
+
   if (element instanceof HTMLButtonElement) {
-    return element.type === "submit" || /send|submit/i.test(element.ariaLabel ?? element.textContent ?? "");
+    return hasSendSignal(element) || (element.type === "submit" && hasPromptFormContext(element));
   }
   if (element instanceof HTMLInputElement) {
-    return element.type === "submit" || element.type === "button";
+    return (element.type === "submit" || element.type === "button") && hasSendSignal(element);
   }
-  return /send|submit/i.test(element.getAttribute("aria-label") ?? element.textContent ?? "");
+  return hasSendSignal(element);
+}
+
+function isDisabledControl(element: HTMLElement): boolean {
+  if (element instanceof HTMLButtonElement || element instanceof HTMLInputElement) return element.disabled;
+  return element.getAttribute("aria-disabled") === "true";
+}
+
+function hasSendSignal(element: HTMLElement): boolean {
+  const signals = [
+    element.getAttribute("aria-label"),
+    element.getAttribute("data-testid"),
+    element.getAttribute("data-test-id"),
+    element.getAttribute("title"),
+    element.getAttribute("name"),
+    element.textContent
+  ];
+  return signals.some((value) => /\b(send|submit)\b|send-button|composer-submit/i.test(value ?? ""));
+}
+
+function hasPromptFormContext(element: HTMLElement): boolean {
+  const form = element.closest("form");
+  if (!form) return false;
+  return Boolean(form.querySelector("textarea,[contenteditable='true'],[contenteditable='plaintext-only']"));
 }

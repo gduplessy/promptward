@@ -20,7 +20,7 @@ describe("debug utilities", () => {
     });
 
     expect(event.id).toBeTruthy();
-    expect(event.version).toBe("0.7.0");
+    expect(event.version).toBe("0.8.0");
     expect(event.stage).toBe("editor-read");
   });
 });

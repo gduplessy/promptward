@@ -31,7 +31,7 @@ function onClickCapture(event: MouseEvent): void {
     }
   });
   if (!trigger) return;
-  void protectAndMaybeSubmit(event, trigger, findEditor(trigger));
+  runProtectionFlow(protectAndMaybeSubmit(event, trigger, findEditor(trigger), debugId), debugId);
 }
 
 function onKeydownCapture(event: KeyboardEvent): void {
@@ -52,7 +52,7 @@ function onKeydownCapture(event: KeyboardEvent): void {
     }
   });
   if (!editor) return;
-  void protectAndMaybeSubmit(event, editor.element, editor, debugId);
+  runProtectionFlow(protectAndMaybeSubmit(event, editor.element, editor, debugId), debugId);
 }
 
 function onSubmitCapture(event: SubmitEvent): void {
@@ -60,16 +60,29 @@ function onSubmitCapture(event: SubmitEvent): void {
   if (!(form instanceof HTMLFormElement)) return;
   const debugId = crypto.randomUUID();
   const editor = findEditor(form);
+  const submitter = event.submitter;
+  const submitTrigger = submitter instanceof HTMLElement ? findSubmitTrigger(submitter) : undefined;
   void logDebug({
     debugId,
     stage: editor ? "submit-captured" : "submit-editor-missed",
     level: editor ? "debug" : "warn",
     metadata: {
       form: describeElement(form),
+      submitter: submitter instanceof HTMLElement ? describeElement(submitter) : undefined,
+      submitTrigger: submitTrigger ? describeElement(submitTrigger) : undefined,
       editor: editor ? describeElement(editor.element) : undefined
     }
   });
-  void protectAndMaybeSubmit(event, form, editor, debugId);
+  if (submitter instanceof HTMLElement && !submitTrigger) {
+    void logDebug({
+      debugId,
+      stage: "submit-ignored",
+      level: "info",
+      metadata: { reason: "submitter-not-send-control", submitter: describeElement(submitter) }
+    });
+    return;
+  }
+  runProtectionFlow(protectAndMaybeSubmit(event, submitTrigger ?? form, editor, debugId), debugId);
 }
 
 async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor: EditorHandle | undefined, debugId = crypto.randomUUID()): Promise<void> {
@@ -99,25 +112,13 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
   }
 
   const original = editor.getText();
-  const originalSummary = await textSummary(original);
-  await logDebug({
-    debugId,
-    stage: "editor-read",
-    level: "debug",
-    metadata: {
-      eventType: event.type,
-      trigger: describeElement(trigger),
-      editor: describeElement(editor.element),
-      ...originalSummary
-    },
-    raw: { original }
-  });
   if (!original.trim()) {
+    const emptySummary = await textSummary(original);
     await logDebug({
       debugId,
       stage: "empty-editor-ignored",
       level: "info",
-      metadata: originalSummary
+      metadata: emptySummary
     });
     return;
   }
@@ -127,6 +128,19 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
   inFlight.add(trigger);
 
   try {
+    const originalSummary = await textSummary(original);
+    await logDebug({
+      debugId,
+      stage: "editor-read",
+      level: "debug",
+      metadata: {
+        eventType: event.type,
+        trigger: describeElement(trigger),
+        editor: describeElement(editor.element),
+        ...originalSummary
+      },
+      raw: { original }
+    });
     await logDebug({
       debugId,
       stage: "protect-request",
@@ -196,6 +210,22 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
   } finally {
     inFlight.delete(trigger);
   }
+}
+
+function runProtectionFlow(flow: Promise<void>, debugId: string): void {
+  void flow.catch((error: unknown) => {
+    void logDebug({
+      debugId,
+      stage: "protect-flow-error",
+      level: "error",
+      metadata: { error: formatError(error) }
+    }).catch(() => undefined);
+  });
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) return `${error.name}: ${error.message}`;
+  return String(error);
 }
 
 async function handleFailure(error: string, original: string, trigger: HTMLElement, editor: EditorHandle, debugId: string): Promise<void> {
