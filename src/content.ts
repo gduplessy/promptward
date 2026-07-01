@@ -185,24 +185,24 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
     });
 
     if (decision === "confirm") {
-      editor.setText(response.safeText);
+      const applied = await editor.setText(response.safeText);
       const readback = editor.getText();
-      const readbackMatchesRedacted = readback === response.safeText;
       await logDebug({
         debugId,
         stage: "editor-set",
-        level: readbackMatchesRedacted ? "debug" : "error",
+        level: applied ? "debug" : "error",
         metadata: {
           ...(await textSummary(readback)),
-          readbackMatchesRedacted
+          readbackMatchesRedacted: applied
         },
         raw: { redacted: response.safeText, readback }
       });
-      if (!readbackMatchesRedacted) {
-        // The editor didn't actually accept the redacted text (common with rich-text
-        // composers that keep their own internal state) - never send in this state,
-        // since it could mean the original, unredacted text is what's still staged.
-        editor.setText(original);
+      if (!applied) {
+        // No input strategy made the editor's own text actually reflect the redacted
+        // value (common with rich-text composers that keep their own internal state) -
+        // never send in this state, since it could mean the original, unredacted text
+        // is what's still staged.
+        await editor.setText(original);
         await showReviewModal({
           original,
           error: "PromptWard couldn't confirm the redacted text was applied to the message box. Nothing was sent - please try again."
@@ -211,7 +211,7 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
       }
       replay(trigger, debugId);
     } else if (decision === "original") {
-      editor.setText(original);
+      await editor.setText(original);
       await logDebug({
         debugId,
         stage: "review-send-original",
@@ -220,7 +220,7 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
       });
       replay(trigger, debugId);
     } else {
-      editor.setText(original);
+      await editor.setText(original);
       await logDebug({
         debugId,
         stage: "review-cancelled",
@@ -256,9 +256,9 @@ async function handleFailure(error: string, original: string, trigger: HTMLEleme
     if (response.ok && !response.changed) {
       replay(trigger, debugId);
     } else if (response.ok) {
-      editor.setText(response.safeText);
-      if (editor.getText() !== response.safeText) {
-        editor.setText(original);
+      const applied = await editor.setText(response.safeText);
+      if (!applied) {
+        await editor.setText(original);
         await showReviewModal({
           original,
           error: "PromptWard couldn't confirm the redacted text was applied to the message box. Nothing was sent - please try again."
