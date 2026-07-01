@@ -13,7 +13,7 @@ PromptWard is a Manifest V3 Chrome extension that redacts prompt PII locally bef
 
 Built-in sites: `chatgpt.com`, `chat.openai.com`, `claude.ai`, `gemini.google.com`, `www.perplexity.ai`, `chat.mistral.ai`. Add any other site from the side panel's Custom Domains section.
 
-See [PRIVACY.md](./PRIVACY.md) for what does (and doesn't) leave your device, and [NOTICE](./NOTICE) for third-party model/runtime attribution.
+See [PRIVACY.md](./PRIVACY.md) for what does (and doesn't) leave your device, and [NOTICE](./NOTICE) for third-party model/runtime attribution. PromptWard's own code is [MIT licensed](./LICENSE).
 
 ## Local model constraint
 
