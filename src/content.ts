@@ -187,16 +187,28 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
     if (decision === "confirm") {
       editor.setText(response.safeText);
       const readback = editor.getText();
+      const readbackMatchesRedacted = readback === response.safeText;
       await logDebug({
         debugId,
         stage: "editor-set",
-        level: "debug",
+        level: readbackMatchesRedacted ? "debug" : "error",
         metadata: {
           ...(await textSummary(readback)),
-          readbackMatchesRedacted: readback === response.safeText
+          readbackMatchesRedacted
         },
         raw: { redacted: response.safeText, readback }
       });
+      if (!readbackMatchesRedacted) {
+        // The editor didn't actually accept the redacted text (common with rich-text
+        // composers that keep their own internal state) - never send in this state,
+        // since it could mean the original, unredacted text is what's still staged.
+        editor.setText(original);
+        await showReviewModal({
+          original,
+          error: "PromptWard couldn't confirm the redacted text was applied to the message box. Nothing was sent - please try again."
+        });
+        return;
+      }
       replay(trigger, debugId);
     } else if (decision === "original") {
       editor.setText(original);
@@ -245,6 +257,14 @@ async function handleFailure(error: string, original: string, trigger: HTMLEleme
       replay(trigger, debugId);
     } else if (response.ok) {
       editor.setText(response.safeText);
+      if (editor.getText() !== response.safeText) {
+        editor.setText(original);
+        await showReviewModal({
+          original,
+          error: "PromptWard couldn't confirm the redacted text was applied to the message box. Nothing was sent - please try again."
+        });
+        return;
+      }
       replay(trigger, debugId);
     }
   }

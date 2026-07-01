@@ -56,12 +56,46 @@ export function contentEditableHandle(element: HTMLElement): EditorHandle {
   return {
     element,
     getText: () => element.innerText ?? element.textContent ?? "",
-    setText: (value: string) => {
-      element.textContent = value;
-      element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
-      element.dispatchEvent(new Event("change", { bubbles: true }));
-    }
+    setText: (value: string) => setContentEditableText(element, value)
   };
+}
+
+function setContentEditableText(element: HTMLElement, value: string): void {
+  element.focus();
+  if (replaceViaExecCommand(element, value)) return;
+
+  element.textContent = value;
+  element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
+  element.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/**
+ * Rich-text composers (Lexical, ProseMirror, Draft.js — used by Perplexity,
+ * ChatGPT, etc.) keep their own internal document model and ignore a direct
+ * `textContent` write: the DOM looks updated but the framework still submits
+ * its old state. `execCommand("insertText", ...)` fires the same native
+ * input events a real keystroke would, which these editors do listen for.
+ */
+function replaceViaExecCommand(element: HTMLElement, value: string): boolean {
+  if (typeof document.execCommand !== "function") return false;
+  const selection = window.getSelection();
+  if (!selection) return false;
+
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  let succeeded = false;
+  try {
+    succeeded = document.execCommand("insertText", false, value);
+  } catch {
+    succeeded = false;
+  }
+  element.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const normalized = (element.innerText ?? element.textContent ?? "").replace(/\r\n/g, "\n").trim();
+  return succeeded && normalized === value.trim();
 }
 
 export function submitNative(trigger: HTMLElement): void {
