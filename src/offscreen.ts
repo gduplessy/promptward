@@ -4,6 +4,7 @@ import {
   type PlaceholderSummary
 } from "./shared/messages";
 import { APP_VERSION, type DebugLogInput, type DebugSettings } from "./shared/debug";
+import { isOffscreenOwnedMessage } from "./shared/offscreen-routing";
 
 type WorkerRequest =
   | {
@@ -43,6 +44,9 @@ let worker: Worker | undefined;
 const pending = new Map<string, (response: WorkerResponse) => void>();
 
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  if (!isOffscreenOwnedMessage(message)) {
+    return false;
+  }
   void handleMessage(message)
     .then(sendResponse)
     .catch((error: unknown) => {

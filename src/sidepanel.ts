@@ -14,7 +14,9 @@ const appRoot = getAppRoot();
 void (async () => {
   await render();
   await startPrewarm();
-})();
+})().catch((error: unknown) => {
+  console.error("[PromptWard] side panel init failed", error);
+});
 
 async function render(status = "Idle"): Promise<void> {
   const settings = await loadSettings();
@@ -176,9 +178,14 @@ async function startPrewarm(): Promise<void> {
   const timer = setInterval(() => {
     void refreshDiagnosticsWhileLoading();
   }, 400);
-  const response = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.prewarmModel })) as PrewarmModelResponse;
-  clearInterval(timer);
-  await render(response.ok ? `Ready in ${response.coldStartMs ?? 0} ms` : `Model failed: ${response.error ?? "Unknown error"}`);
+  try {
+    const response = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.prewarmModel })) as PrewarmModelResponse;
+    await render(response.ok ? `Ready in ${response.coldStartMs ?? 0} ms` : `Model failed: ${response.error ?? "Unknown error"}`);
+  } catch (error) {
+    await render(`Model failed: ${error instanceof Error ? error.message : "Unknown error"}`).catch(() => undefined);
+  } finally {
+    clearInterval(timer);
+  }
 }
 
 function setModelProgress(pct: number, label: string): void {
