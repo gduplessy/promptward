@@ -21,6 +21,7 @@ PromptWard is a Manifest V3 Chrome extension that catches PII in your prompts be
 - [Known limitations](#known-limitations)
 - [Privacy](#privacy)
 - [Development](#development)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 ## Features
@@ -85,6 +86,10 @@ Load `dist/` as an unpacked Chrome extension.
 - ONNX Runtime Web WASM files are packaged under `public/ort/`.
 - Runtime remote model loading is disabled in `src/rampart-worker.ts`.
 - `models/**` and `ort/**` are intentionally not listed in `web_accessible_resources`.
+
+## Acknowledgements
+
+PromptWard's local detection is built on the [Rampart](https://huggingface.co/nationaldesignstudio/rampart) model from National Design Studio — client-side PII redaction for AI assistants, announced [here](https://x.com/tbpn/status/2071706033186373699?s=20).
 
 ## License
 
