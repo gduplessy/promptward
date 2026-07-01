@@ -198,6 +198,15 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
         raw: { redacted: response.safeText, readback }
       });
       replay(trigger, debugId);
+    } else if (decision === "original") {
+      editor.setText(original);
+      await logDebug({
+        debugId,
+        stage: "review-send-original",
+        level: "info",
+        metadata: { placeholderCount: response.placeholders.length }
+      });
+      replay(trigger, debugId);
     } else {
       editor.setText(original);
       await logDebug({

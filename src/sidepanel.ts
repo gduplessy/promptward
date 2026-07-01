@@ -6,11 +6,15 @@ import {
   type PrewarmModelResponse,
   type PromptWardSettings
 } from "./shared/messages";
+import { computeModelProgress } from "./shared/model-progress";
 import "./sidepanel.css";
 
 const appRoot = getAppRoot();
 
-void render();
+void (async () => {
+  await render();
+  await startPrewarm();
+})();
 
 async function render(status = "Idle"): Promise<void> {
   const settings = await loadSettings();
@@ -42,7 +46,12 @@ async function render(status = "Idle"): Promise<void> {
 
       <section class="group">
         <h2>Model</h2>
-        <button id="prewarm" type="button">Prewarm local model</button>
+        <p class="empty">Loads automatically when this panel opens.</p>
+        <div id="model-progress" class="progress" hidden>
+          <div class="progress-track"><div id="model-progress-fill" class="progress-fill"></div></div>
+          <small id="model-progress-label"></small>
+        </div>
+        <button id="prewarm" type="button">Reload local model</button>
       </section>
 
       <section class="group">
@@ -163,18 +172,34 @@ function bind(settings: PromptWardSettings): void {
 
 async function startPrewarm(): Promise<void> {
   await render("Loading model");
+  setModelProgress(0, "Preparing model");
   const timer = setInterval(() => {
     void refreshDiagnosticsWhileLoading();
-  }, 1000);
+  }, 400);
   const response = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.prewarmModel })) as PrewarmModelResponse;
   clearInterval(timer);
   await render(response.ok ? `Ready in ${response.coldStartMs ?? 0} ms` : `Model failed: ${response.error ?? "Unknown error"}`);
+}
+
+function setModelProgress(pct: number, label: string): void {
+  const container = appRoot.querySelector<HTMLDivElement>("#model-progress");
+  const fill = appRoot.querySelector<HTMLDivElement>("#model-progress-fill");
+  const text = appRoot.querySelector<HTMLElement>("#model-progress-label");
+  if (!container || !fill || !text) return;
+  container.hidden = false;
+  fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  text.textContent = label;
 }
 
 async function refreshDiagnosticsWhileLoading(): Promise<void> {
   const logs = (await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.getDebugLogs })) as DebugLogsResponse;
   const list = appRoot.querySelector<HTMLDivElement>("#debug-list");
   if (list) list.innerHTML = debugRows(logs.events);
+
+  const overall = computeModelProgress(logs.events);
+  if (overall) {
+    setModelProgress(overall.pct, overall.file ? `${overall.file} — ${overall.pct}%` : `${overall.pct}%`);
+  }
 
   const status = appRoot.querySelector<HTMLSpanElement>("#status");
   if (!status) return;

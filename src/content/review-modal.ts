@@ -1,6 +1,8 @@
 import type { PlaceholderSummary } from "../shared/messages";
 
-export type ReviewDecision = "confirm" | "cancel" | "retry";
+export type ReviewDecision = "confirm" | "cancel" | "retry" | "original";
+
+export const AUTO_CONFIRM_SECONDS = 5;
 
 export function showReviewModal(options: {
   original: string;
@@ -10,7 +12,7 @@ export function showReviewModal(options: {
 }): Promise<ReviewDecision> {
   return new Promise((resolve) => {
     const host = document.createElement("promptward-review");
-    const shadow = host.attachShadow({ mode: "closed" });
+    const shadow = host.attachShadow({ mode: "open" });
     const isError = Boolean(options.error);
     shadow.innerHTML = `
       <style>
@@ -66,20 +68,60 @@ export function showReviewModal(options: {
           </div>
           <footer>
             <button data-action="cancel">Cancel</button>
-            ${isError ? `<button data-action="retry">Retry</button>` : `<button class="primary" data-action="confirm">Send redacted</button>`}
+            ${
+              isError
+                ? `<button data-action="retry">Retry</button>`
+                : `<button data-action="original">Send original</button>
+                   <button class="primary" data-action="confirm">Send redacted (${AUTO_CONFIRM_SECONDS}s)</button>`
+            }
           </footer>
         </section>
       </div>
     `;
+
+    let countdownTimer: ReturnType<typeof setInterval> | undefined;
+
+    const finish = (decision: ReviewDecision): void => {
+      if (countdownTimer !== undefined) clearInterval(countdownTimer);
+      host.remove();
+      resolve(decision);
+    };
 
     shadow.addEventListener("click", (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
       const action = target.dataset.action as ReviewDecision | undefined;
       if (!action) return;
-      host.remove();
-      resolve(action);
+      finish(action);
     });
+
+    if (!isError) {
+      const confirmButton = shadow.querySelector<HTMLButtonElement>("[data-action='confirm']");
+      let remaining = AUTO_CONFIRM_SECONDS;
+
+      const cancelCountdown = (): void => {
+        if (countdownTimer === undefined) return;
+        clearInterval(countdownTimer);
+        countdownTimer = undefined;
+        if (confirmButton) confirmButton.textContent = "Send redacted";
+      };
+
+      // The countdown covers users who stepped away from the keyboard: censoring
+      // stays the default. Any activity inside the modal means the user is
+      // reviewing, so hand control back to them.
+      shadow.addEventListener("pointermove", cancelCountdown);
+      shadow.addEventListener("pointerdown", cancelCountdown);
+      shadow.addEventListener("keydown", cancelCountdown);
+
+      countdownTimer = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          finish("confirm");
+          return;
+        }
+        if (confirmButton) confirmButton.textContent = `Send redacted (${remaining}s)`;
+      }, 1000);
+    }
 
     document.documentElement.append(host);
   });

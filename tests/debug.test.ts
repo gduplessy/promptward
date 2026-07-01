@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeDebugEvent, textSummary } from "../src/shared/debug";
+import { APP_VERSION, normalizeDebugEvent, textSummary } from "../src/shared/debug";
 
 describe("debug utilities", () => {
   it("summarizes text without returning raw content", async () => {
@@ -20,7 +20,7 @@ describe("debug utilities", () => {
     });
 
     expect(event.id).toBeTruthy();
-    expect(event.version).toBe("0.8.0");
+    expect(event.version).toBe(APP_VERSION);
     expect(event.stage).toBe("editor-read");
   });
 });
