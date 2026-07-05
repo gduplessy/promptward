@@ -4,3 +4,9 @@ packages/
 .env
 .env.*
 *.log
+.gstack/
+
+# HyperFrames generated QA/scratch artifacts. Keep authored projects, assets,
+# media ledgers, and final renders such as videos/**/renders/video.mp4 tracked.
+videos/**/snapshots/
+videos/**/renders/work-*/
