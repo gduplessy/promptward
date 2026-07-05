@@ -1,0 +1,242 @@
+<!doctype html>
+<html
+  lang="en"
+  data-composition-variables='[
+    {"id":"title","type":"string","label":"Title","default":"PromptWard"},
+    {"id":"subtitle","type":"string","label":"Subtitle","default":"Review AI prompts before they leave the browser"},
+    {"id":"accent","type":"color","label":"Accent","default":"#4df0c8"}
+  ]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>PromptWard Product Intro</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+      }
+
+      body {
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        color: #f8fafc;
+      }
+
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+      }
+
+      .clip {
+        position: absolute;
+        inset: 0;
+      }
+
+      .background {
+        background:
+          radial-gradient(circle at 50% 42%, rgba(77, 240, 200, 0.12), transparent 26%),
+          radial-gradient(circle at 22% 72%, rgba(96, 165, 250, 0.1), transparent 24%),
+          linear-gradient(180deg, #05070a 0%, #090d12 46%, #020304 100%);
+      }
+
+      .grid {
+        opacity: 0;
+        background-image:
+          linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+        background-size: 64px 64px;
+        mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+      }
+
+      .vignette {
+        background:
+          radial-gradient(circle at center, transparent 0%, transparent 48%, rgba(0, 0, 0, 0.72) 100%),
+          linear-gradient(90deg, rgba(0, 0, 0, 0.38), transparent 28%, transparent 72%, rgba(0, 0, 0, 0.38));
+      }
+
+      .noise {
+        opacity: 0.08;
+        background-image:
+          radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.18) 0 1px, transparent 1px),
+          radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px),
+          radial-gradient(circle at 45% 75%, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px);
+        background-size: 97px 83px, 131px 113px, 173px 157px;
+      }
+
+      .ring {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 760px;
+        height: 760px;
+        margin-left: -380px;
+        margin-top: -380px;
+        border: 1px solid rgba(77, 240, 200, 0.22);
+        border-radius: 50%;
+        opacity: 0;
+      }
+
+      .ring.secondary {
+        width: 1040px;
+        height: 1040px;
+        margin-left: -520px;
+        margin-top: -520px;
+        border-color: rgba(96, 165, 250, 0.16);
+      }
+
+      .content {
+        display: grid;
+        place-items: center;
+        padding: 120px;
+      }
+
+      .lockup {
+        width: min(1180px, 80vw);
+        text-align: center;
+      }
+
+      .mark {
+        display: inline-grid;
+        place-items: center;
+        width: 86px;
+        height: 86px;
+        margin-bottom: 34px;
+        border: 1px solid rgba(77, 240, 200, 0.52);
+        border-radius: 22px;
+        color: var(--accent, #4df0c8);
+        font-size: 38px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: 0;
+        box-shadow:
+          0 0 42px rgba(77, 240, 200, 0.14),
+          inset 0 0 22px rgba(77, 240, 200, 0.08);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 132px;
+        line-height: 0.95;
+        font-weight: 760;
+        letter-spacing: 0;
+        color: #f8fafc;
+        text-shadow: 0 18px 80px rgba(15, 23, 42, 0.62);
+      }
+
+      .subtitle {
+        max-width: 900px;
+        margin: 30px auto 0;
+        font-size: 34px;
+        line-height: 1.28;
+        font-weight: 430;
+        letter-spacing: 0;
+        color: rgba(226, 232, 240, 0.74);
+      }
+
+      .accent-line {
+        display: block;
+        width: 360px;
+        height: 2px;
+        margin: 42px auto 0;
+        background: linear-gradient(90deg, transparent, var(--accent, #4df0c8), transparent);
+        transform-origin: center;
+      }
+
+      .fade-out {
+        pointer-events: none;
+        opacity: 0;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="10"
+      data-width="1920"
+      data-height="1080"
+    >
+      <audio
+        id="bgm"
+        src="assets/subtle-bgm.mp3"
+        data-start="0"
+        data-duration="10"
+        data-track-index="0"
+        data-volume="0.55"
+      ></audio>
+
+      <section id="intro" class="clip content" data-start="0" data-duration="10" data-track-index="1">
+        <div class="clip background" id="background"></div>
+        <div class="clip grid" id="grid"></div>
+        <div class="clip noise" id="noise"></div>
+        <div class="ring" id="ring-primary"></div>
+        <div class="ring secondary" id="ring-secondary"></div>
+        <div class="clip vignette" id="vignette"></div>
+
+        <main class="lockup" id="lockup">
+          <div class="mark" id="mark">P</div>
+          <h1 id="title">PromptWard</h1>
+          <p class="subtitle" id="subtitle">Review AI prompts before they leave the browser</p>
+          <span class="accent-line" id="accent-line"></span>
+        </main>
+      </section>
+
+      <section id="fade-out" class="clip fade-out" data-start="8.6" data-duration="1.4" data-track-index="2"></section>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+
+      const variables =
+        window.__hyperframes && window.__hyperframes.getVariables
+          ? window.__hyperframes.getVariables()
+          : { title: "PromptWard", subtitle: "Review AI prompts before they leave the browser", accent: "#4df0c8" };
+
+      document.getElementById("title").textContent = variables.title;
+      document.getElementById("subtitle").textContent = variables.subtitle;
+      document.documentElement.style.setProperty("--accent", variables.accent);
+
+      const tl = gsap.timeline({ paused: true });
+
+      tl.set(["#mark", "#title", "#subtitle", "#accent-line"], {
+        opacity: 0
+      });
+
+      tl.set("#lockup", { y: 28, scale: 0.985 });
+      tl.set("#accent-line", { scaleX: 0 });
+
+      tl.to("#grid", { opacity: 1, duration: 1.2, ease: "power2.out" }, 0.15);
+      tl.fromTo("#background", { scale: 1.04 }, { scale: 1, duration: 9.6, ease: "none" }, 0);
+      tl.fromTo("#ring-primary", { opacity: 0, scale: 0.72 }, { opacity: 0.92, scale: 1, duration: 1.8, ease: "power3.out" }, 0.45);
+      tl.fromTo("#ring-secondary", { opacity: 0, scale: 0.82 }, { opacity: 0.7, scale: 1, duration: 2.2, ease: "power3.out" }, 0.65);
+      tl.to(["#ring-primary", "#ring-secondary"], { rotation: 9, duration: 8.4, ease: "none" }, 0.8);
+      tl.to("#lockup", { y: 0, scale: 1, duration: 1.5, ease: "power3.out" }, 0.8);
+      tl.to("#mark", { opacity: 1, y: -6, duration: 0.8, ease: "power3.out" }, 0.85);
+      tl.to("#title", { opacity: 1, y: -10, duration: 1.05, ease: "power3.out" }, 1.15);
+      tl.to("#subtitle", { opacity: 1, y: -8, duration: 0.85, ease: "power2.out" }, 1.95);
+      tl.to("#accent-line", { opacity: 1, scaleX: 1, duration: 0.9, ease: "power3.out" }, 2.55);
+      tl.to("#noise", { opacity: 0.12, duration: 5.2, ease: "sine.inOut" }, 2.8);
+      tl.to("#ring-primary", { scale: 1.035, opacity: 0.42, duration: 5.2, ease: "sine.inOut" }, 3.2);
+      tl.to("#ring-secondary", { scale: 1.025, opacity: 0.28, duration: 5.2, ease: "sine.inOut" }, 3.2);
+      tl.to("#bgm", { volume: 0, duration: 1.2, ease: "power1.in" }, 8.75);
+      tl.to("#fade-out", { opacity: 1, duration: 1.25, ease: "power1.inOut" }, 8.75);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

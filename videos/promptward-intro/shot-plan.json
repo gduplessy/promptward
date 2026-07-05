@@ -1,0 +1,29 @@
+{
+  "project": {
+    "id": "promptward-intro",
+    "workflow": "motion-graphics",
+    "category": "kinetic-type",
+    "duration_s": 10,
+    "aspect": "16:9",
+    "width": 1920,
+    "height": 1080
+  },
+  "asset_needs": [],
+  "content": {
+    "title": "PromptWard",
+    "subtitle": "Review AI prompts before they leave the browser",
+    "bgm": "assets/subtle-bgm.mp3",
+    "brief": "A dark, restrained product intro. The title fades in over a layered black background with quiet grid and glow motion. Subtle background music starts immediately, stays low, and fades out by the end."
+  },
+  "motion": {
+    "beats": [
+      { "time": 0.0, "event": "dark background and low audio begin" },
+      { "time": 0.6, "event": "ambient rings and grid breathe in" },
+      { "time": 1.2, "event": "PromptWard title fades and rises into final position" },
+      { "time": 2.1, "event": "subtitle resolves under title" },
+      { "time": 3.0, "event": "accent line and product mark settle" },
+      { "time": 8.6, "event": "gentle fade to black begins" },
+      { "time": 10.0, "event": "complete black frame" }
+    ]
+  }
+}
