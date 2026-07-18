@@ -263,6 +263,50 @@ describe("content flow: guard behavior", () => {
       expect(submitted).toBe(true);
     });
   });
+
+  it("Enter with isComposing true is not intercepted (IME composition)", async () => {
+    const { textarea, form } = mountComposer("hi there");
+    stub.setProtectResponse({ ok: true, safeText: "hi [PERSON_1]", changed: true, placeholders: [], durationMs: 1 });
+
+    let submitted = false;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitted = true;
+    });
+
+    const keyEvent = new KeyboardEvent("keydown", {
+      key: "Enter",
+      isComposing: true,
+      bubbles: true,
+      cancelable: true
+    });
+    textarea.dispatchEvent(keyEvent);
+
+    expect(keyEvent.defaultPrevented).toBe(false);
+    expect(submitted).toBe(false);
+    expect(stub.sentMessages.some((m) => m.type === "PW_PROTECT_TEXT")).toBe(false);
+    expect(document.querySelector("promptward-review")).toBeNull();
+  });
+
+  it("Enter with keyCode 229 is not intercepted (legacy IME signal)", async () => {
+    const { textarea, form } = mountComposer("hi there");
+    stub.setProtectResponse({ ok: true, safeText: "hi [PERSON_1]", changed: true, placeholders: [], durationMs: 1 });
+
+    let submitted = false;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitted = true;
+    });
+
+    const keyEvent = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    Object.defineProperty(keyEvent, "keyCode", { get: () => 229 });
+    textarea.dispatchEvent(keyEvent);
+
+    expect(keyEvent.defaultPrevented).toBe(false);
+    expect(submitted).toBe(false);
+    expect(stub.sentMessages.some((m) => m.type === "PW_PROTECT_TEXT")).toBe(false);
+    expect(document.querySelector("promptward-review")).toBeNull();
+  });
 });
 
 describe("error-modal retry (current behavior — see plans/003)", () => {
