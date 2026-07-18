@@ -25,7 +25,6 @@ export type PromptWardSettings = {
   enabled: boolean;
   domainOverrides: Record<string, boolean>;
   customDomains: string[];
-  webGpuEnabled: boolean;
 };
 
 export type PrewarmModelMessage = {

@@ -22,7 +22,7 @@ when done.
 | 009  | Validate custom-domain input | P2 | S | — | DONE |
 | 010  | Dedupe worker protocol types + escapeHtml | P3 | S | — (after 004 preferred) | DONE |
 | 011  | Debug logging off the send critical path | P3 | S | 001 (after 002–004 preferred) | TODO |
-| 012  | Remove no-op WebGPU toggle | P3 | S | — | TODO |
+| 012  | Remove no-op WebGPU toggle | P3 | S | — | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 

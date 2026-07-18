@@ -3,8 +3,7 @@ import type { PromptWardSettings } from "./messages";
 export const DEFAULT_SETTINGS: PromptWardSettings = {
   enabled: true,
   domainOverrides: {},
-  customDomains: [],
-  webGpuEnabled: false
+  customDomains: []
 };
 
 export const BUILT_IN_HOSTS = new Set([
