@@ -21,6 +21,7 @@ PromptWard is a Manifest V3 Chrome extension that catches PII in your prompts be
 - [Known limitations](#known-limitations)
 - [Privacy](#privacy)
 - [Development](#development)
+- [Changelog](#changelog)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
@@ -86,6 +87,25 @@ Load `dist/` as an unpacked Chrome extension.
 - ONNX Runtime Web WASM files are packaged under `public/ort/`.
 - Runtime remote model loading is disabled in `src/rampart-worker.ts`.
 - `models/**` and `ort/**` are intentionally not listed in `web_accessible_resources`.
+
+### Versioning
+
+The release number lives in [VERSION](./VERSION) and is the single source of
+truth — `package.json`, the extension manifest (`src/manifest.ts`), and
+`APP_VERSION` (`src/shared/debug.ts`) must all equal it, enforced by a test.
+Bump all four together with:
+
+```sh
+npm run bump-version -- 0.11.0
+```
+
+(Don't hand-edit one source — reloading the unpacked extension will silently
+show the old number in `chrome://extensions` if the manifest version drifts.)
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for release history. Current release:
+**0.10.1**.
 
 ## Acknowledgements
 
