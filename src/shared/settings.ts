@@ -20,6 +20,14 @@ export function normalizeHost(host: string): string {
   return host.trim().toLowerCase().replace(/^\*\./, "");
 }
 
+const HOST_PATTERN = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]?$/;
+
+/** Accepts a bare registrable hostname (post-normalizeHost): no scheme, path,
+ *  port, spaces, or IP-literal brackets. Rejects single-label hosts ("localhost"). */
+export function isValidCustomHost(host: string): boolean {
+  return host.length > 0 && host.length <= 253 && HOST_PATTERN.test(host);
+}
+
 export function isSiteEnabled(url: URL, settings: PromptWardSettings): boolean {
   if (!settings.enabled) return false;
   const host = normalizeHost(url.hostname);
