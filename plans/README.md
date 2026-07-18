@@ -14,7 +14,7 @@ when done.
 | 002  | Ignore Enter during IME composition | P1 | S | 001 | DONE |
 | 003  | Retry path honors the review contract | P1 | S | 001 | DONE |
 | 004  | Timeouts on worker/protect requests | P1 | M | 001, 003 | DONE |
-| 013  | Fix debugSettingsPromise TDZ crash on content-script init | P1 | S | 001, 002 | TODO |
+| 013  | Fix debugSettingsPromise TDZ crash on content-script init | P1 | S | 001, 002 | DONE |
 | 005  | Serialize offscreen-document creation | P2 | S | — | TODO |
 | 006  | CI workflow (verify, typecheck, test, build) | P2 | S | — | TODO |
 | 007  | Vendor only the ORT files the runtime loads | P2 | M | 006 (soft) | TODO |
