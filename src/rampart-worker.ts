@@ -2,21 +2,7 @@ import { env, pipeline } from "@huggingface/transformers";
 import { createGuard, detectNer, type ChatGuard, type NerDetector, type TokenClassifier } from "@nationaldesignstudio/rampart";
 import type { PlaceholderSummary } from "./shared/messages";
 import { APP_VERSION, type DebugLogInput } from "./shared/debug";
-
-type WorkerRequest =
-  | {
-      id: string;
-      type: "protect";
-      text: string;
-      conversationKey: string;
-      modelBaseUrl: string;
-      ortBaseUrl: string;
-      debugId?: string;
-      rawDiagnosticsEnabled: boolean;
-    }
-  | { id: string; type: "reveal"; text: string; conversationKey: string }
-  | { id: string; type: "prewarm"; modelBaseUrl: string; ortBaseUrl: string; debugId?: string; rawDiagnosticsEnabled: boolean }
-  | { id: string; type: "reset"; conversationKey: string };
+import type { WorkerRequest, WorkerResponse } from "./shared/worker-protocol";
 
 const LOCAL_MODEL_ID = "rampart";
 
@@ -26,9 +12,18 @@ let coldStartPromise: Promise<number> | undefined;
 let configuredPaths: { modelBaseUrl: string; ortBaseUrl: string } | undefined;
 const guards = new Map<string, ChatGuard>();
 
+function respond(response: WorkerResponse): void {
+  self.postMessage(response);
+}
+
 self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
   void handleRequest(event.data)
-    .then((response) => self.postMessage({ id: event.data.id, ok: true, ...response }))
+    .then((response) =>
+      // handleRequest returns an untyped Record<string, unknown> whose shape depends on
+      // request.type; trusting it to match the corresponding WorkerResponse variant here
+      // avoids restructuring handleRequest's return type for this dedupe.
+      respond({ id: event.data.id, ok: true, ...response } as WorkerResponse)
+    )
     .catch((error: unknown) => {
       logDebug({
         debugId: "debugId" in event.data && event.data.debugId ? event.data.debugId : event.data.id,
@@ -38,7 +33,7 @@ self.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
           error: error instanceof Error ? error.message : "Rampart worker error"
         }
       });
-      self.postMessage({
+      respond({
         id: event.data.id,
         ok: false,
         status: "error",
