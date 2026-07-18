@@ -309,8 +309,8 @@ describe("content flow: guard behavior", () => {
   });
 });
 
-describe("error-modal retry (current behavior — see plans/003)", () => {
-  it("a successful retry replays without re-showing the review modal", async () => {
+describe("error-modal retry", () => {
+  it("retry success with changes shows the review modal before sending", async () => {
     vi.useFakeTimers();
     const { textarea, button } = mountComposer("hi there");
     stub.setProtectResponse({ ok: false, safeText: "", changed: false, placeholders: [], durationMs: 1, error: "boom" });
@@ -328,12 +328,76 @@ describe("error-modal retry (current behavior — see plans/003)", () => {
     stub.setProtectResponse({ ok: true, safeText: "safe", changed: true, placeholders: [], durationMs: 1 });
     getShadow().querySelector<HTMLButtonElement>("[data-action='retry']")?.click();
 
+    // The retry result must go through the review modal, not straight to a replay.
     await vi.waitFor(() => {
-      expect(textarea.value).toBe("safe");
+      expect(getShadow().querySelector("[data-action='original']")).not.toBeNull();
+    }, { interval: 1 });
+    expect(replayed).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(AUTO_CONFIRM_SECONDS * 1000);
+
+    await vi.waitFor(() => {
+      expect(replayed).toBe(true);
+    }, { interval: 1 });
+    expect(textarea.value).toBe("safe");
+  });
+
+  it("retry failure re-shows the error modal instead of failing silently", async () => {
+    vi.useFakeTimers();
+    const { textarea, button } = mountComposer("hi there");
+    stub.setProtectResponse({ ok: false, safeText: "", changed: false, placeholders: [], durationMs: 1, error: "boom" });
+
+    let replayed = false;
+    button.addEventListener("click", (event) => {
+      if (!event.defaultPrevented) replayed = true;
+    });
+
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => {
+      expect(document.querySelector("promptward-review")).not.toBeNull();
     }, { interval: 1 });
 
-    // Plan 003 intentionally changes this: retry success must re-show the review modal.
-    expect(replayed).toBe(true);
+    stub.setProtectResponse({ ok: false, safeText: "", changed: false, placeholders: [], durationMs: 1, error: "boom again" });
+    getShadow().querySelector<HTMLButtonElement>("[data-action='retry']")?.click();
+
+    // A fresh error modal (Cancel + Retry, no "original" action) must appear - the
+    // user is never left with a dead-end modal and no feedback.
+    await vi.waitFor(() => {
+      const shadow = getShadow();
+      expect(shadow.querySelector("[data-action='retry']")).not.toBeNull();
+      expect(shadow.querySelector("[data-action='original']")).toBeNull();
+    }, { interval: 1 });
+
+    getShadow().querySelector<HTMLButtonElement>("[data-action='cancel']")?.click();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(replayed).toBe(false);
+    expect(textarea.value).toBe("hi there");
+  });
+
+  it("retry success with no changes replays without a modal", async () => {
+    vi.useFakeTimers();
+    const { textarea, button } = mountComposer("hi there");
+    stub.setProtectResponse({ ok: false, safeText: "", changed: false, placeholders: [], durationMs: 1, error: "boom" });
+
+    let replayed = false;
+    button.addEventListener("click", (event) => {
+      if (!event.defaultPrevented) replayed = true;
+    });
+
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => {
+      expect(document.querySelector("promptward-review")).not.toBeNull();
+    }, { interval: 1 });
+
+    stub.setProtectResponse({ ok: true, safeText: "hi there", changed: false, placeholders: [], durationMs: 1 });
+    getShadow().querySelector<HTMLButtonElement>("[data-action='retry']")?.click();
+
+    await vi.waitFor(() => {
+      expect(replayed).toBe(true);
+    }, { interval: 1 });
+
+    expect(textarea.value).toBe("hi there");
     expect(document.querySelector("promptward-review")).toBeNull();
   });
 });

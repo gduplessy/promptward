@@ -163,75 +163,85 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
       },
       raw: response.ok ? { redacted: response.safeText } : undefined
     });
-    if (!response.ok) {
-      await handleFailure(response.error ?? "Unable to redact prompt", original, trigger, editor, debugId);
-      return;
-    }
-
-    if (!response.changed) {
-      await logDebug({
-        debugId,
-        stage: "unchanged-replay",
-        level: "warn",
-        metadata: { reason: "protect-returned-unchanged" },
-        raw: { original }
-      });
-      replay(trigger, debugId);
-      return;
-    }
-
-    const decision = await showReviewModal({
-      original,
-      redacted: response.safeText,
-      placeholders: response.placeholders
-    });
-
-    if (decision === "confirm") {
-      const applied = await editor.setText(response.safeText);
-      const readback = editor.getText();
-      await logDebug({
-        debugId,
-        stage: "editor-set",
-        level: applied ? "debug" : "error",
-        metadata: {
-          ...(await textSummary(readback)),
-          readbackMatchesRedacted: applied
-        },
-        raw: { redacted: response.safeText, readback }
-      });
-      if (!applied) {
-        // No input strategy made the editor's own text actually reflect the redacted
-        // value (common with rich-text composers that keep their own internal state) -
-        // never send in this state, since it could mean the original, unredacted text
-        // is what's still staged.
-        await editor.setText(original);
-        await showReviewModal({
-          original,
-          error: "PromptWard couldn't confirm the redacted text was applied to the message box. Nothing was sent - please try again."
-        });
-        return;
-      }
-      replay(trigger, debugId);
-    } else if (decision === "original") {
-      await editor.setText(original);
-      await logDebug({
-        debugId,
-        stage: "review-send-original",
-        level: "info",
-        metadata: { placeholderCount: response.placeholders.length }
-      });
-      replay(trigger, debugId);
-    } else {
-      await editor.setText(original);
-      await logDebug({
-        debugId,
-        stage: "review-cancelled",
-        level: "info",
-        metadata: {}
-      });
-    }
+    await handleProtectResponse(response, original, trigger, editor, debugId);
   } finally {
     inFlight.delete(trigger);
+  }
+}
+
+async function handleProtectResponse(
+  response: ProtectTextResponse,
+  original: string,
+  trigger: HTMLElement,
+  editor: EditorHandle,
+  debugId: string
+): Promise<void> {
+  if (!response.ok) {
+    await handleFailure(response.error ?? "Unable to redact prompt", original, trigger, editor, debugId);
+    return;
+  }
+
+  if (!response.changed) {
+    await logDebug({
+      debugId,
+      stage: "unchanged-replay",
+      level: "warn",
+      metadata: { reason: "protect-returned-unchanged" },
+      raw: { original }
+    });
+    replay(trigger, debugId);
+    return;
+  }
+
+  const decision = await showReviewModal({
+    original,
+    redacted: response.safeText,
+    placeholders: response.placeholders
+  });
+
+  if (decision === "confirm") {
+    const applied = await editor.setText(response.safeText);
+    const readback = editor.getText();
+    await logDebug({
+      debugId,
+      stage: "editor-set",
+      level: applied ? "debug" : "error",
+      metadata: {
+        ...(await textSummary(readback)),
+        readbackMatchesRedacted: applied
+      },
+      raw: { redacted: response.safeText, readback }
+    });
+    if (!applied) {
+      // No input strategy made the editor's own text actually reflect the redacted
+      // value (common with rich-text composers that keep their own internal state) -
+      // never send in this state, since it could mean the original, unredacted text
+      // is what's still staged.
+      await editor.setText(original);
+      await showReviewModal({
+        original,
+        error: "PromptWard couldn't confirm the redacted text was applied to the message box. Nothing was sent - please try again."
+      });
+      return;
+    }
+    replay(trigger, debugId);
+  } else if (decision === "original") {
+    await editor.setText(original);
+    await logDebug({
+      debugId,
+      stage: "review-send-original",
+      level: "info",
+      metadata: { placeholderCount: response.placeholders.length }
+    });
+    replay(trigger, debugId);
+  } else {
+    await editor.setText(original);
+    await logDebug({
+      debugId,
+      stage: "review-cancelled",
+      level: "info",
+      metadata: {}
+    });
   }
 }
 
@@ -253,23 +263,15 @@ function formatError(error: unknown): string {
 
 async function handleFailure(error: string, original: string, trigger: HTMLElement, editor: EditorHandle, debugId: string): Promise<void> {
   const decision = await showReviewModal({ original, error });
-  if (decision === "retry") {
-    const response = await protectText(original, debugId);
-    if (response.ok && !response.changed) {
-      replay(trigger, debugId);
-    } else if (response.ok) {
-      const applied = await editor.setText(response.safeText);
-      if (!applied) {
-        await editor.setText(original);
-        await showReviewModal({
-          original,
-          error: "PromptWard couldn't confirm the redacted text was applied to the message box. Nothing was sent - please try again."
-        });
-        return;
-      }
-      replay(trigger, debugId);
-    }
-  }
+  if (decision !== "retry") return;
+  const response = await protectText(original, debugId);
+  await logDebug({
+    debugId,
+    stage: "retry-protect-response",
+    level: response.ok ? "debug" : "error",
+    metadata: { ok: response.ok, changed: response.ok ? response.changed : undefined, error: response.error }
+  });
+  await handleProtectResponse(response, original, trigger, editor, debugId);
 }
 
 async function protectText(text: string, debugId: string): Promise<ProtectTextResponse> {
