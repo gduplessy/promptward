@@ -47,7 +47,10 @@ describe("review modal", () => {
     const state = trackDecision(showReviewModal({ original: "hello", redacted: "hi" }));
     const shadow = getShadow();
 
-    shadow.querySelector(".backdrop")?.dispatchEvent(new Event("pointermove", { bubbles: true }));
+    // pointerdown models a deliberate interaction (a click on the panel). Bare
+    // pointermove is intentionally NOT a cancel trigger — see the production
+    // comment in src/content/review-modal.ts.
+    shadow.querySelector(".backdrop")?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     await vi.advanceTimersByTimeAsync(AUTO_CONFIRM_SECONDS * 2 * 1000);
 
     expect(state.decision).toBeUndefined();

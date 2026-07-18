@@ -108,9 +108,12 @@ export function showReviewModal(options: {
       };
 
       // The countdown covers users who stepped away from the keyboard: censoring
-      // stays the default. Any activity inside the modal means the user is
-      // reviewing, so hand control back to them.
-      shadow.addEventListener("pointermove", cancelCountdown);
+      // stays the default. Deliberate interaction inside the modal means the user
+      // is reviewing, so hand control back. NOTE: pointermove is intentionally
+      // excluded — it fires on incidental mouse drift (the cursor coasting to a
+      // stop after the click that opened the modal), which would cancel the
+      // countdown instantly and make the auto-send look broken. pointerdown and
+      // keydown are real intent.
       shadow.addEventListener("pointerdown", cancelCountdown);
       shadow.addEventListener("keydown", cancelCountdown);
 

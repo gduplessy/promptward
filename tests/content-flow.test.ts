@@ -115,6 +115,36 @@ describe("content flow: review-modal decisions", () => {
     expect(textarea.value).toBe("hi [PERSON_1]");
   });
 
+  it("does not cancel the auto-confirm countdown on bare pointermove (mouse drift)", async () => {
+    // Regression: the modal pops up under a cursor that is still coasting to a
+    // stop after the click that triggered the send. pointermove fired by that
+    // incidental drift must NOT cancel the countdown — only deliberate interaction
+    // (a click/pointerdown on the panel, or a keydown) should hand control back.
+    vi.useFakeTimers();
+    const { textarea, button } = mountComposer("hi there");
+    stub.setProtectResponse({ ok: true, safeText: "hi [PERSON_1]", changed: true, placeholders: [], durationMs: 1 });
+
+    let replayed = false;
+    button.addEventListener("click", (event) => {
+      if (!event.defaultPrevented) replayed = true;
+    });
+
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    const shadow = await vi.waitFor(() => getShadow(), { interval: 1 });
+    // Simulate the cursor drifting over the modal without any button press.
+    // jsdom doesn't implement PointerEvent; a bare Event with the right type
+    // string is enough — the production listener reads no pointer-specific fields.
+    shadow.dispatchEvent(new Event("pointermove", { bubbles: true }));
+
+    await vi.advanceTimersByTimeAsync(AUTO_CONFIRM_SECONDS * 1000);
+
+    await vi.waitFor(() => {
+      expect(replayed).toBe(true);
+    }, { interval: 1 });
+    expect(textarea.value).toBe("hi [PERSON_1]");
+  });
+
   it("cancel restores the original text and does not send", async () => {
     vi.useFakeTimers();
     const { textarea, button } = mountComposer("hi there");
