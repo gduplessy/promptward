@@ -18,7 +18,7 @@ when done.
 | 005  | Serialize offscreen-document creation | P2 | S | — | DONE |
 | 006  | CI workflow (verify, typecheck, test, build) | P2 | S | — | DONE |
 | 007  | Vendor only the ORT files the runtime loads | P2 | M | 006 (soft) | BLOCKED (manual Chrome load-unpacked check needed) |
-| 008  | Correct README rehydration claim | P3 | S | — | TODO |
+| 008  | Correct README rehydration claim | P3 | S | — | DONE |
 | 009  | Validate custom-domain input | P2 | S | — | TODO |
 | 010  | Dedupe worker protocol types + escapeHtml | P3 | S | — (after 004 preferred) | TODO |
 | 011  | Debug logging off the send critical path | P3 | S | 001 (after 002–004 preferred) | TODO |
