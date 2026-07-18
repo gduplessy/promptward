@@ -170,11 +170,17 @@ async function loadDebugLogs(): Promise<DebugEvent[]> {
   return Array.isArray(events) ? (events as DebugEvent[]) : [];
 }
 
-async function appendDebugEvent(event: DebugEvent): Promise<void> {
-  const events = await loadDebugLogs();
-  const next = [...events, event].slice(-DEBUG_LOG_LIMIT);
-  await chrome.storage.session.set({ [DEBUG_LOGS_KEY]: next });
-  console.debug("[PromptWard]", event);
+let appendQueue: Promise<void> = Promise.resolve();
+
+function appendDebugEvent(event: DebugEvent): Promise<void> {
+  const task = appendQueue.then(async () => {
+    const events = await loadDebugLogs();
+    const next = [...events, event].slice(-DEBUG_LOG_LIMIT);
+    await chrome.storage.session.set({ [DEBUG_LOGS_KEY]: next });
+    console.debug("[PromptWard]", event);
+  });
+  appendQueue = task.catch(() => undefined); // one failure must not wedge the queue
+  return task;
 }
 
 async function sendToOffscreen(message: PromptWardMessage): Promise<unknown> {
