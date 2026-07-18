@@ -17,7 +17,7 @@ when done.
 | 013  | Fix debugSettingsPromise TDZ crash on content-script init | P1 | S | 001, 002 | DONE |
 | 005  | Serialize offscreen-document creation | P2 | S | — | DONE |
 | 006  | CI workflow (verify, typecheck, test, build) | P2 | S | — | DONE |
-| 007  | Vendor only the ORT files the runtime loads | P2 | M | 006 (soft) | TODO |
+| 007  | Vendor only the ORT files the runtime loads | P2 | M | 006 (soft) | BLOCKED (manual Chrome load-unpacked check needed) |
 | 008  | Correct README rehydration claim | P3 | S | — | TODO |
 | 009  | Validate custom-domain input | P2 | S | — | TODO |
 | 010  | Dedupe worker protocol types + escapeHtml | P3 | S | — (after 004 preferred) | TODO |
@@ -93,6 +93,39 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   until the affected files are force-recheckout with
   `git -c core.autocrlf=false checkout -- public/`. Apply that before running
   `npm run build` in any future manually created worktree.
+- **Plan 007 (BLOCKED, steps 1-4 merged)**: the plan's original premise was
+  wrong. It specified the plain (non-jsep) `ort-wasm-simd-threaded.{wasm,mjs}`
+  pair as the keep-list, reasoning that `device: "wasm"` + `numThreads: 1`
+  loads only that pair. The first executor attempt correctly hit its own
+  STOP condition rather than guessing: the built worker bundle
+  (`dist/assets/rampart-worker-*.js`) contained a live, executing reference
+  to `ort-wasm-simd-threaded.jsep-*.wasm`. Root cause, confirmed
+  independently by the reviewer: `@huggingface/transformers` imports the bare
+  `"onnxruntime-web"` specifier, and `onnxruntime-web`'s `package.json`
+  `exports` map resolves that to `dist/ort.bundle.min.mjs` — the jsep-capable
+  bundle — regardless of the `device` option passed to the pipeline;
+  `device: "wasm"` only gates the WebGPU buffer-registration branch inside
+  that bundle's init, not which WASM binary it instantiates. Grepping
+  `ort.bundle.min.mjs` confirms 4 references to the jsep pair and 0 to the
+  plain pair. Keep-list corrected to the jsep pair; re-verified end to end
+  (tsc, 64/64 tests, build ships only the jsep wasm with zero plain-variant
+  references anywhere in `dist/`, 23 MB zip vs the 39 MB baseline — smaller
+  savings than the plan's original estimate since the jsep binary is larger,
+  but still a real reduction from the 93 MB/26-file original). Steps 1-4 are
+  merged into master. **Step 5 (the mandatory manual Chrome runtime gate —
+  load `dist/` as an unpacked extension, open the side panel, confirm the
+  model loads and redacts a test prompt) has NOT been performed** — no
+  browser-automation tool in this session could reliably drive
+  `chrome://extensions`'s native "Load unpacked" file picker. This is
+  exactly the scenario the plan's mandatory gate exists for: static/build
+  analysis got the right answer this time, but nothing in this repo's
+  automated suite would have caught the original wrong keep-list at
+  runtime, and it shouldn't be trusted without the manual check.
+  **Action needed from you**: load `dist/` (or the packaged
+  `packages/promptward-extension.zip`, unzipped) as an unpacked extension,
+  open the side panel, confirm the model reaches "Ready" with no errors in
+  Diagnostics, and confirm a test prompt containing a fake SSN gets redacted
+  on a supported site. Once confirmed, flip this row to DONE.
 - **Plan 005 (DONE)**: required one revision round. The executor's first
   report claimed `tsc --noEmit` exited 0, but it had only run that check
   immediately after editing `src/background.ts`, before writing
