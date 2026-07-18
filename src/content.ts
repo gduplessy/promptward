@@ -123,7 +123,7 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
         debugId,
         stage: "empty-editor-ignored",
         level: "info",
-        metadata: emptySummary
+        metadata: { ...emptySummary, editor: describeElement(editor.element) }
       });
     })().catch(() => undefined);
     return;

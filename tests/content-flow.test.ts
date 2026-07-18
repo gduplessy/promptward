@@ -29,6 +29,24 @@ function mountComposer(text: string): { textarea: HTMLTextAreaElement; button: H
   return { textarea, button: document.querySelector("button")!, form: document.querySelector("form")! };
 }
 
+function mountRichTextComposer(text: string): { editor: HTMLElement; button: HTMLButtonElement } {
+  // Mimics ChatGPT's composer: an earlier empty contenteditable (title/search
+  // field) precedes the real prompt textarea div, which exposes role="textbox".
+  // The send button is a sibling, not an ancestor of the editor, and is NOT
+  // wrapped in a <form> with it. Clicking the button blurs the editor.
+  document.body.innerHTML = `
+    <div id="sidebar"><div contenteditable="true" role="textbox" aria-label="Search chats"></div></div>
+    <main>
+      <div id="composer">
+        <div id="prompt-textarea" contenteditable="true" role="textbox" aria-label="Chat with ChatGPT">${text}</div>
+      </div>
+      <button id="composer-submit-button" type="button" data-testid="send-button" aria-label="Send prompt">Send</button>
+    </main>`;
+  const editor = document.querySelector<HTMLElement>("#prompt-textarea")!;
+  editor.focus();
+  return { editor, button: document.querySelector("button")! };
+}
+
 function getShadow(): ShadowRoot {
   const host = document.querySelector("promptward-review");
   if (!host?.shadowRoot) throw new Error("Review modal not mounted");
@@ -211,6 +229,36 @@ describe("content flow: guard behavior", () => {
 
     expect(result.defaultPrevented).toBe(false);
     expect(stub.sentMessages.some((m) => m.type === "PW_PROTECT_TEXT")).toBe(false);
+  });
+
+  it("resolves the composer over an earlier empty contenteditable on rich-text sites", async () => {
+    // Mirrors the ChatGPT/Perplexity topology that regressed in 0.10.1: the page
+    // contains an empty contenteditable (e.g. a title/search field) that appears
+    // BEFORE the real composer in DOM order, and the send button is a sibling of
+    // the composer rather than a descendant. At click time document.activeElement
+    // has moved off the editor onto the button, so the activeElement fast-path
+    // can't rescue the lookup. The adapter must rank candidates and pick the one
+    // with text, not the first contenteditable in the document.
+    const { button } = mountRichTextComposer("my ssn is 123-45-6789");
+    stub.setProtectResponse({
+      ok: true,
+      safeText: "my ssn is [SSN_1]",
+      changed: true,
+      placeholders: [{ token: "[SSN_1]", label: "SSN" }],
+      durationMs: 1
+    });
+
+    const result = clickButton(button);
+
+    // Send must be intercepted (not silently passed through as empty-editor-ignored).
+    expect(result.defaultPrevented).toBe(true);
+    await vi.waitFor(() => {
+      expect(stub.sentMessages.some((m) => m.type === "PW_PROTECT_TEXT")).toBe(true);
+    });
+    const protectMessage = stub.sentMessages.find((m) => m.type === "PW_PROTECT_TEXT") as
+      | { text?: string }
+      | undefined;
+    expect(protectMessage?.text).toContain("123-45-6789");
   });
 
   it("swallows an in-flight duplicate send", async () => {
