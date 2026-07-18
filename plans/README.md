@@ -16,7 +16,7 @@ when done.
 | 004  | Timeouts on worker/protect requests | P1 | M | 001, 003 | DONE |
 | 013  | Fix debugSettingsPromise TDZ crash on content-script init | P1 | S | 001, 002 | DONE |
 | 005  | Serialize offscreen-document creation | P2 | S | — | DONE |
-| 006  | CI workflow (verify, typecheck, test, build) | P2 | S | — | TODO |
+| 006  | CI workflow (verify, typecheck, test, build) | P2 | S | — | DONE |
 | 007  | Vendor only the ORT files the runtime loads | P2 | M | 006 (soft) | TODO |
 | 008  | Correct README rehydration claim | P3 | S | — | TODO |
 | 009  | Validate custom-domain input | P2 | S | — | TODO |
