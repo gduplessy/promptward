@@ -38,13 +38,6 @@ async function render(status = "Idle"): Promise<void> {
           </span>
           <input id="enabled" type="checkbox" ${settings.enabled ? "checked" : ""} />
         </label>
-        <label class="row">
-          <span>
-            <strong>WebGPU</strong>
-            <small>Reserved opt-in; WASM remains the default backend.</small>
-          </span>
-          <input id="webgpu" type="checkbox" ${settings.webGpuEnabled ? "checked" : ""} />
-        </label>
       </section>
 
       <section class="group">
@@ -102,11 +95,6 @@ async function render(status = "Idle"): Promise<void> {
 function bind(settings: PromptWardSettings): void {
   appRoot.querySelector<HTMLInputElement>("#enabled")?.addEventListener("change", async (event) => {
     await chrome.storage.sync.set({ enabled: (event.target as HTMLInputElement).checked });
-    await render("Settings saved");
-  });
-
-  appRoot.querySelector<HTMLInputElement>("#webgpu")?.addEventListener("change", async (event) => {
-    await chrome.storage.sync.set({ webGpuEnabled: (event.target as HTMLInputElement).checked });
     await render("Settings saved");
   });
 
