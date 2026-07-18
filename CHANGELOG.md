@@ -11,6 +11,21 @@ source of truth that `package.json`, `src/manifest.ts`, and
 file`) enforces this — bump with `npm run bump-version -- <x.y.z>` so all four
 update together.
 
+## [0.11.2] - 2026-07-18
+
+Docs-only housekeeping so root documents render in-browser instead of
+downloading.
+
+### Changed
+- **`LICENSE` and `NOTICE` now have `.md` extensions** (`LICENSE.md`,
+  `NOTICE.md`). GitHub and GitHub Pages serve bare `LICENSE`/`NOTICE` as raw
+  downloads with no preview; adding the extension makes them display as
+  rendered Markdown. All in-repo links and the `License: MIT` badge have been
+  updated to the new paths (README, AGENTS, and the cross-link from
+  `LICENSE.md` to `NOTICE.md`). The vendored model license at
+  `public/models/rampart/LICENSE` is intentionally untouched — it is a
+  separate, third-party file.
+
 ## [0.11.1] - 2026-07-18
 
 Minor fix to the review modal's auto-send countdown.
