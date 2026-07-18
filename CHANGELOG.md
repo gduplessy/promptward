@@ -11,6 +11,23 @@ source of truth that `package.json`, `src/manifest.ts`, and
 file`) enforces this — bump with `npm run bump-version -- <x.y.z>` so all four
 update together.
 
+## [0.11.0] - 2026-07-18
+
+Critical fix: protection was silently no-op'ing on the most popular sites.
+
+### Fixed
+- **Protection no longer silently skips rich-text composers.** On ChatGPT,
+  Perplexity, and Claude (Lexical/ProseMirror editors), the content script
+  resolved the wrong contenteditable element — an unrelated empty field (title,
+  search) earlier in the DOM — read empty text, and let the send through without
+  ever running detection. No modal appeared; the prompt went out unredacted.
+  Editor lookup now collects every editable candidate in scope and ranks them,
+  preferring the one containing the user's text. Reproduced by a regression test
+  (`content flow > resolves the composer over an earlier empty contenteditable`)
+  that failed on the pre-fix code and passes now. Diagnostics also now record
+  which editor was resolved when an empty editor is ignored, so any future
+  regression of this kind is immediately readable in the side panel.
+
 ## [0.10.1] - 2026-07-18
 
 Polish and dead-code removal. The headline user-visible change is the removal

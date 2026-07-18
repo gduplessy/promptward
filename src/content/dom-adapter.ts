@@ -31,15 +31,48 @@ export function findEditorIn(root: ParentNode): EditorHandle | undefined {
     return contentEditableHandle(active);
   }
 
-  const input = root.querySelector<HTMLTextAreaElement | HTMLInputElement>(
-    "textarea, input[type='text'], input:not([type])"
+  // Rich-text composers (Lexical/ProseMirror — ChatGPT, Perplexity, Claude) sit
+  // in pages that contain several contenteditables; querySelector returns the
+  // first in DOM order, which is often an unrelated empty field (title, search).
+  // At click time document.activeElement has also moved onto the send button, so
+  // the activeElement fast-paths above miss. Collect every candidate and rank:
+  // prefer one with text (the composer the user typed into), then activeElement,
+  // then first in DOM order. Without this, a real send reads empty text and is
+  // silently passed through as empty-editor-ignored.
+  const inputLike = Array.from(
+    root.querySelectorAll<HTMLTextAreaElement | HTMLInputElement>(
+      "textarea, input[type='text'], input:not([type])"
+    )
   );
-  if (input) return inputHandle(input);
+  const editables = Array.from(
+    root.querySelectorAll<HTMLElement>(
+      "[contenteditable='true'], [contenteditable='plaintext-only'], [role='textbox']"
+    )
+  );
+  const candidates = [...inputLike, ...editables];
+  if (candidates.length === 0) return undefined;
 
-  const editable = root.querySelector<HTMLElement>("[contenteditable='true'], [contenteditable='plaintext-only']");
-  if (editable) return contentEditableHandle(editable);
+  const ranked = candidates
+    .map((element) => ({ element, text: editorText(element) }))
+    .sort((a, b) => {
+      const aHasText = a.text.trim().length > 0 ? 0 : 1;
+      const bHasText = b.text.trim().length > 0 ? 0 : 1;
+      if (aHasText !== bHasText) return aHasText - bHasText;
+      const aActive = a.element === active ? 0 : 1;
+      const bActive = b.element === active ? 0 : 1;
+      return aActive - bActive;
+    });
+  return handleFor(ranked[0].element);
+}
 
-  return undefined;
+function editorText(element: HTMLElement): string {
+  if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) return element.value;
+  return element.innerText ?? element.textContent ?? "";
+}
+
+function handleFor(element: HTMLElement): EditorHandle {
+  if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) return inputHandle(element);
+  return contentEditableHandle(element);
 }
 
 export function inputHandle(element: HTMLTextAreaElement | HTMLInputElement): EditorHandle {

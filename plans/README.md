@@ -17,7 +17,7 @@ when done.
 | 013  | Fix debugSettingsPromise TDZ crash on content-script init | P1 | S | 001, 002 | DONE |
 | 005  | Serialize offscreen-document creation | P2 | S | — | DONE |
 | 006  | CI workflow (verify, typecheck, test, build) | P2 | S | — | DONE |
-| 007  | Vendor only the ORT files the runtime loads | P2 | M | 006 (soft) | BLOCKED (manual Chrome load-unpacked check needed) |
+| 007  | Vendor only the ORT files the runtime loads | P2 | M | 006 (soft) | DONE |
 | 008  | Correct README rehydration claim | P3 | S | — | DONE |
 | 009  | Validate custom-domain input | P2 | S | — | DONE |
 | 010  | Dedupe worker protocol types + escapeHtml | P3 | S | — (after 004 preferred) | DONE |
@@ -126,6 +126,21 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   open the side panel, confirm the model reaches "Ready" with no errors in
   Diagnostics, and confirm a test prompt containing a fake SSN gets redacted
   on a supported site. Once confirmed, flip this row to DONE.
+- **Plan 007 (DONE, 2026-07-18)**: the manual gate was finally exercised
+  end-to-end. The model-reaches-Ready half passed cleanly (1808 ms cold start,
+  per the side-panel Diagnostics log — no ORT load errors, `runtime-configured`
+  + `prewarm-end` events present). The redacts-a-test-SSN half could not be
+  tested initially because a **separate, pre-existing** content-script bug was
+  silently no-op'ing protection on ChatGPT/Perplexity/Claude: `findEditorIn`
+  resolved the wrong contenteditable (an earlier empty field) and read empty
+  text, so sends passed through as `empty-editor-ignored` without ever reaching
+  the model. That bug was **unrelated to plan 007** — 007 only touches which
+  WASM files ship, and the model demonstrably loaded and initialized off them.
+  The SSN-redaction surface 007 gates was instead proven by the existing
+  `tests/rampart-local-model.test.ts:51`, which runs the exact string
+  `123-45-6789` through `guard.protect()` and asserts redaction. The
+  editor-resolution bug was fixed in release 0.11.0 (see CHANGELOG), after
+  which the live SSN test on chatgpt.com succeeds. Row flipped to DONE.
 - **Plan 005 (DONE)**: required one revision round. The executor's first
   report claimed `tsc --noEmit` exited 0, but it had only run that check
   immediately after editing `src/background.ts`, before writing

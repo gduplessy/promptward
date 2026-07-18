@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.10.1";
+export const APP_VERSION = "0.11.0";
 export const DEBUG_LOG_LIMIT = 100;
 
 export type DebugSettings = {
