@@ -11,6 +11,23 @@ source of truth that `package.json`, `src/manifest.ts`, and
 file`) enforces this — bump with `npm run bump-version -- <x.y.z>` so all four
 update together.
 
+## [0.11.1] - 2026-07-18
+
+Minor fix to the review modal's auto-send countdown.
+
+### Fixed
+- **The auto-send countdown no longer cancels on incidental mouse movement.**
+  The review modal's 5-second countdown (which auto-sends the redacted prompt
+  if you're idle) was wired to cancel on any `pointermove` over the modal. In
+  practice the modal pops up under a cursor still coasting to a stop after the
+  click that triggered the send — so the countdown cancelled instantly and the
+  confirm button showed plain "Send redacted" with no timer, looking like the
+  feature was broken. The countdown now only cancels on deliberate interaction
+  (a click/`pointerdown` on the panel or a `keydown`), preserving the original
+  step-away-from-keyboard intent. Regression test added in
+  `content-flow.test.ts`; the existing `review-modal.test.ts` case updated to
+  model interaction via `pointerdown`.
+
 ## [0.11.0] - 2026-07-18
 
 Critical fix: protection was silently no-op'ing on the most popular sites.
