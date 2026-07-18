@@ -309,6 +309,56 @@ describe("content flow: guard behavior", () => {
   });
 });
 
+describe("content flow: channel failures fail closed", () => {
+  it("an undefined protect response fails closed with feedback", async () => {
+    vi.useFakeTimers();
+    const { button } = mountComposer("hi there");
+    stub.setProtectResponder(() => Promise.resolve(undefined as unknown as import("../src/shared/messages").ProtectTextResponse));
+
+    let replayed = false;
+    button.addEventListener("click", (event) => {
+      if (!event.defaultPrevented) replayed = true;
+    });
+
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => {
+      expect(document.querySelector("promptward-review")).not.toBeNull();
+    }, { interval: 1 });
+
+    const shadow = getShadow();
+    expect(shadow.querySelector("[data-action='original']")).toBeNull();
+    expect(replayed).toBe(false);
+
+    shadow.querySelector<HTMLButtonElement>("[data-action='cancel']")?.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(replayed).toBe(false);
+  });
+
+  it("a rejected sendMessage fails closed with feedback and no unhandled rejection", async () => {
+    vi.useFakeTimers();
+    const { button } = mountComposer("hi there");
+    stub.setProtectResponder(() => Promise.reject(new Error("Extension context invalidated")));
+
+    let replayed = false;
+    button.addEventListener("click", (event) => {
+      if (!event.defaultPrevented) replayed = true;
+    });
+
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => {
+      expect(document.querySelector("promptward-review")).not.toBeNull();
+    }, { interval: 1 });
+
+    const shadow = getShadow();
+    expect(shadow.querySelector("[data-action='original']")).toBeNull();
+    expect(replayed).toBe(false);
+
+    shadow.querySelector<HTMLButtonElement>("[data-action='cancel']")?.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(replayed).toBe(false);
+  });
+});
+
 describe("error-modal retry", () => {
   it("retry success with changes shows the review modal before sending", async () => {
     vi.useFakeTimers();
