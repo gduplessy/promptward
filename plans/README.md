@@ -15,7 +15,7 @@ when done.
 | 003  | Retry path honors the review contract | P1 | S | 001 | DONE |
 | 004  | Timeouts on worker/protect requests | P1 | M | 001, 003 | DONE |
 | 013  | Fix debugSettingsPromise TDZ crash on content-script init | P1 | S | 001, 002 | DONE |
-| 005  | Serialize offscreen-document creation | P2 | S | — | TODO |
+| 005  | Serialize offscreen-document creation | P2 | S | — | DONE |
 | 006  | CI workflow (verify, typecheck, test, build) | P2 | S | — | TODO |
 | 007  | Vendor only the ORT files the runtime loads | P2 | M | 006 (soft) | TODO |
 | 008  | Correct README rehydration claim | P3 | S | — | TODO |
@@ -93,6 +93,16 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   until the affected files are force-recheckout with
   `git -c core.autocrlf=false checkout -- public/`. Apply that before running
   `npm run build` in any future manually created worktree.
+- **Plan 005 (DONE)**: required one revision round. The executor's first
+  report claimed `tsc --noEmit` exited 0, but it had only run that check
+  immediately after editing `src/background.ts`, before writing
+  `tests/background-offscreen.test.ts` — the test file's unused `beforeEach`
+  import (never called) failed `noUnusedLocals`. Caught on independent
+  reviewer re-verification, sent back with the literal failing output;
+  fixed in one round with the import removed and re-verified with actual
+  terminal output this time. General lesson: executor self-reports of
+  "exit 0" must be independently re-run by the reviewer, not trusted —
+  this is exactly why the closing-the-loop review step exists.
 
 ## Direction options (maintainer decisions, not defects — no plans written)
 
