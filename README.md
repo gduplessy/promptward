@@ -29,7 +29,7 @@ PromptWard is a Manifest V3 Chrome extension that catches PII in your prompts be
 - **Local detection, not a proxy.** An ONNX token-classification model ([Rampart](https://huggingface.co/nationaldesignstudio/rampart)) plus regex/checksum heuristics (SSNs, Luhn-validated card numbers, emails, phone numbers) run inside the extension — no request ever leaves the browser to classify your text.
 - **Censor by default, never silent.** A review modal shows original vs. redacted side by side. It auto-sends the redacted version after a 5-second idle timer (covers stepping away from the keyboard), with an explicit **Send original** opt-out and instant cancellation the moment you interact with the modal.
 - **Fail-closed on rich-text editors.** Modern chat composers (Lexical, ProseMirror) keep their own internal document state; PromptWard verifies the redacted text actually landed in the editor before allowing a send, and blocks the send rather than silently letting unredacted text through if it can't confirm.
-- **Reversible placeholders.** Redacted tokens like `[PERSON_1]` or `[SSN_1]` rehydrate back to their real values within the same conversation, so model responses referencing them still read naturally.
+- **Reversible placeholders (foundation).** Redaction keeps a per-conversation map from tokens like `[PERSON_1]` or `[SSN_1]` back to their real values, held only in extension memory. Automatic rehydration of model responses is not wired up yet — replies will show the placeholder tokens as-is.
 - **Bring your own domain.** Add any site from the side panel's Custom Domains list, not just the built-in five.
 
 ## Supported sites
@@ -62,7 +62,7 @@ PromptWard is a Manifest V3 Chrome extension that catches PII in your prompts be
 
 - Detection is assistive, not a compliance or DLP guarantee: it can miss PII in unusual formatting and will occasionally flag harmless text.
 - The redaction verify-and-fail-closed guard means an incompatible composer will block sends entirely (with a visible error) rather than leak PII — safer, but you'll need to report the site if that happens.
-- Reversible placeholders are scoped to a single conversation/tab; they reset on navigation, tab close, or extension reload.
+- Model responses are not yet rehydrated: replies that reference redacted values show the placeholder tokens (e.g. `[PERSON_1]`) rather than the original text. The placeholder maps that would enable this are kept per conversation/tab and reset on navigation, tab close, or extension reload.
 
 ## Privacy
 
