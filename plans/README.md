@@ -13,7 +13,7 @@ when done.
 | 001  | Characterization tests for the content-script protection flow | P1 | M | — | DONE |
 | 002  | Ignore Enter during IME composition | P1 | S | 001 | DONE |
 | 003  | Retry path honors the review contract | P1 | S | 001 | DONE |
-| 004  | Timeouts on worker/protect requests | P1 | M | 001, 003 | TODO |
+| 004  | Timeouts on worker/protect requests | P1 | M | 001, 003 | DONE |
 | 013  | Fix debugSettingsPromise TDZ crash on content-script init | P1 | S | 001, 002 | TODO |
 | 005  | Serialize offscreen-document creation | P2 | S | — | TODO |
 | 006  | CI workflow (verify, typecheck, test, build) | P2 | S | — | TODO |
