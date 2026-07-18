@@ -1,40 +1,11 @@
 import {
   isPromptWardMessage,
-  MESSAGE_TYPES,
-  type PlaceholderSummary
+  MESSAGE_TYPES
 } from "./shared/messages";
 import { APP_VERSION, type DebugLogInput, type DebugSettings } from "./shared/debug";
 import { isOffscreenOwnedMessage } from "./shared/offscreen-routing";
 import { withTimeout } from "./shared/timeout";
-
-type WorkerRequest =
-  | {
-      id: string;
-      type: "protect";
-      text: string;
-      conversationKey: string;
-      modelBaseUrl: string;
-      ortBaseUrl: string;
-      debugId?: string;
-      rawDiagnosticsEnabled: boolean;
-    }
-  | { id: string; type: "reveal"; text: string; conversationKey: string }
-  | { id: string; type: "prewarm"; modelBaseUrl: string; ortBaseUrl: string; debugId?: string; rawDiagnosticsEnabled: boolean }
-  | { id: string; type: "reset"; conversationKey: string };
-
-type WorkerResponse =
-  | { id: string; ok: true; status: "ready" | "loading"; coldStartMs?: number }
-  | {
-      id: string;
-      ok: true;
-      safeText: string;
-      changed: boolean;
-      placeholders: PlaceholderSummary[];
-      durationMs: number;
-    }
-  | { id: string; ok: true; text: string }
-  | { id: string; ok: true }
-  | { id: string; ok: false; error: string; status?: "error" };
+import type { WorkerRequest, WorkerResponse } from "./shared/worker-protocol";
 
 type WorkerDebugMessage = {
   type: "debug";
