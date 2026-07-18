@@ -18,6 +18,19 @@ export const requiredModelFiles = [
   "LICENSE"
 ];
 
+// @huggingface/transformers imports the bare "onnxruntime-web" specifier,
+// which onnxruntime-web's package.json "exports" resolves to
+// dist/ort.bundle.min.mjs (the jsep-capable bundle) regardless of the
+// device option passed to the transformers pipeline — device: "wasm" only
+// gates the WebGPU *buffer registration* inside that bundle's init, not
+// which WASM binary it instantiates. So the jsep pair is the one actually
+// fetched at runtime, not the plain (non-jsep) pair — confirmed by grepping
+// ort.bundle.min.mjs for "ort-wasm-simd-threaded" references (4 jsep, 0
+// plain). If a future change switches the import to the "onnxruntime-web/wasm"
+// subpath (dist/ort.wasm.bundle.min.mjs), re-derive this list — that bundle
+// loads the plain pair instead. See plans/007's maintenance notes.
+export const requiredOrtFiles = ["ort-wasm-simd-threaded.jsep.wasm", "ort-wasm-simd-threaded.jsep.mjs"];
+
 export async function sha256(filePath) {
   const hash = createHash("sha256");
   hash.update(await fs.readFile(filePath));
