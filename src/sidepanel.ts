@@ -1,4 +1,4 @@
-import { BUILT_IN_HOSTS, DEFAULT_SETTINGS, loadSettings, normalizeHost } from "./shared/settings";
+import { BUILT_IN_HOSTS, DEFAULT_SETTINGS, isValidCustomHost, loadSettings, normalizeHost } from "./shared/settings";
 import {
   MESSAGE_TYPES,
   type DebugLogsResponse,
@@ -140,7 +140,10 @@ function bind(settings: PromptWardSettings): void {
     event.preventDefault();
     const input = appRoot.querySelector<HTMLInputElement>("#custom-host");
     const host = normalizeHost(input?.value ?? "");
-    if (!host) return;
+    if (!isValidCustomHost(host)) {
+      await render("Invalid domain — use a bare hostname like example.com");
+      return;
+    }
     const granted = await chrome.permissions.request({ origins: [`*://${host}/*`] });
     if (!granted) {
       await render("Permission denied");

@@ -4,7 +4,7 @@ import {
   type PromptWardMessage
 } from "./shared/messages";
 import { DEBUG_LOG_LIMIT, DEFAULT_DEBUG_SETTINGS, normalizeDebugEvent, type DebugEvent, type DebugSettings } from "./shared/debug";
-import { isSiteEnabled, loadSettings, setHostEnabled } from "./shared/settings";
+import { isSiteEnabled, isValidCustomHost, loadSettings, normalizeHost, setHostEnabled } from "./shared/settings";
 
 const OFFSCREEN_PATH = "src/offscreen.html";
 const DEBUG_LOGS_KEY = "promptwardDebugLogs";
@@ -215,21 +215,24 @@ async function createOffscreenDocumentIfMissing(): Promise<void> {
 async function registerCustomDomainScripts(): Promise<void> {
   const settings = await loadSettings();
   await chrome.scripting.unregisterContentScripts({ ids: ["promptward-custom-domains"] }).catch(() => undefined);
-  if (settings.customDomains.length === 0) return;
 
-  const matches = settings.customDomains.map((domain) => {
-    const host = domain.trim().toLowerCase().replace(/^\*\./, "");
-    return `*://${host}/*`;
-  });
+  const hosts = settings.customDomains.map(normalizeHost).filter(isValidCustomHost);
+  if (hosts.length === 0) return;
 
-  await chrome.scripting.registerContentScripts([
-    {
-      id: "promptward-custom-domains",
-      js: ["src/content.ts"],
-      matches,
-      runAt: "document_start",
-      allFrames: true,
-      persistAcrossSessions: true
-    }
-  ]);
+  const matches = hosts.map((host) => `*://${host}/*`);
+
+  await chrome.scripting
+    .registerContentScripts([
+      {
+        id: "promptward-custom-domains",
+        js: ["src/content.ts"],
+        matches,
+        runAt: "document_start",
+        allFrames: true,
+        persistAcrossSessions: true
+      }
+    ])
+    .catch((error: unknown) => {
+      console.warn("[PromptWard] custom domain registration failed", error);
+    });
 }
