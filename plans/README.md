@@ -10,7 +10,7 @@ when done.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001  | Characterization tests for the content-script protection flow | P1 | M | — | TODO |
+| 001  | Characterization tests for the content-script protection flow | P1 | M | — | DONE |
 | 002  | Ignore Enter during IME composition | P1 | S | 001 | TODO |
 | 003  | Retry path honors the review contract | P1 | S | 001 | TODO |
 | 004  | Timeouts on worker/protect requests | P1 | M | 001, 003 | TODO |
@@ -57,6 +57,20 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   affect open tabs. Diagnostics-only, trivial impact; revisit only if it
   confuses a real debugging session.
 - **`npm audit`**: 0 vulnerabilities at planning time; nothing to plan.
+
+## Notes from execution
+
+- **Plan 001 (DONE)**: the executor found a real, pre-existing TDZ bug —
+  `src/content.ts:310`, `debugSettingsPromise ??= ...` inside `getDebugSettings`
+  is reached (via the module-init `void logDebug(...)` call at line 14) before
+  the `let debugSettingsPromise` declaration at line 307 executes in module
+  evaluation order. Reproducible with a bare `await import("../src/content")`;
+  surfaces as an unhandled `ReferenceError` on every import/page load (Vitest
+  reports it as a non-fatal "Errors: 1", not a test failure). Not fixed by
+  plan 001 (tests-only scope). No plan currently owns this — worth a follow-up
+  fix (hoist the `let debugSettingsPromise` above its first use, or otherwise
+  ensure the init-log call can't race the declaration) before or alongside
+  plan 002/003/004 since they touch the same file.
 
 ## Direction options (maintainer decisions, not defects — no plans written)
 
