@@ -4,6 +4,7 @@ import { findSubmitTrigger } from "./content/submit-detection";
 import { APP_VERSION, textSummary, type DebugLogInput, type DebugSettings } from "./shared/debug";
 import { getConversationKey } from "./shared/conversation";
 import { MESSAGE_TYPES, type DebugSettingsResponse, type ProtectTextResponse } from "./shared/messages";
+import { withTimeout } from "./shared/timeout";
 
 const replaying = new WeakSet<HTMLElement>();
 const inFlight = new WeakSet<HTMLElement>();
@@ -274,14 +275,28 @@ async function handleFailure(error: string, original: string, trigger: HTMLEleme
   await handleProtectResponse(response, original, trigger, editor, debugId);
 }
 
+const PROTECT_TIMEOUT_MS = 250_000; // slightly above the offscreen protect limit
+
 async function protectText(text: string, debugId: string): Promise<ProtectTextResponse> {
-  return chrome.runtime.sendMessage({
-    type: MESSAGE_TYPES.protectText,
-    text,
-    conversationKey: getConversationKey({ url: location.href }),
-    url: location.href,
-    debugId
-  });
+  const request = chrome.runtime
+    .sendMessage({
+      type: MESSAGE_TYPES.protectText,
+      text,
+      conversationKey: getConversationKey({ url: location.href }),
+      url: location.href,
+      debugId
+    })
+    .then((response: ProtectTextResponse | undefined) =>
+      response ?? failedResponse("PromptWard's background service did not respond.")
+    )
+    .catch((error: unknown) => failedResponse(formatError(error)));
+  return withTimeout(request, PROTECT_TIMEOUT_MS, () =>
+    failedResponse("PromptWard timed out while redacting. Nothing was sent.")
+  );
+}
+
+function failedResponse(error: string): ProtectTextResponse {
+  return { ok: false, safeText: "", changed: false, placeholders: [], durationMs: 0, error };
 }
 
 function replay(trigger: HTMLElement, debugId: string): void {

@@ -5,6 +5,7 @@ import {
 } from "./shared/messages";
 import { APP_VERSION, type DebugLogInput, type DebugSettings } from "./shared/debug";
 import { isOffscreenOwnedMessage } from "./shared/offscreen-routing";
+import { withTimeout } from "./shared/timeout";
 
 type WorkerRequest =
   | {
@@ -132,8 +133,15 @@ function isWorkerDebugMessage(value: WorkerResponse | WorkerDebugMessage): value
   return "type" in value && value.type === "debug";
 }
 
+const WORKER_TIMEOUT_MS: Record<WorkerRequest["type"], number> = {
+  prewarm: 300_000, // cold model load on slow hardware — be generous
+  protect: 240_000, // includes a possible cold start on first send
+  reveal: 15_000,
+  reset: 15_000
+};
+
 function postWorker(request: WorkerRequest): Promise<WorkerResponse> {
-  return new Promise((resolve) => {
+  const raw = new Promise<WorkerResponse>((resolve) => {
     void logDebug({
       debugId: "debugId" in request && request.debugId ? request.debugId : request.id,
       context: "offscreen",
@@ -147,6 +155,17 @@ function postWorker(request: WorkerRequest): Promise<WorkerResponse> {
     });
     pending.set(request.id, resolve);
     getWorker().postMessage(request);
+  });
+  return withTimeout(raw, WORKER_TIMEOUT_MS[request.type], () => {
+    pending.delete(request.id);
+    void logDebug({
+      debugId: "debugId" in request && request.debugId ? request.debugId : request.id,
+      context: "offscreen",
+      stage: "worker-timeout",
+      level: "error",
+      metadata: { requestType: request.type, timeoutMs: WORKER_TIMEOUT_MS[request.type] }
+    });
+    return { id: request.id, ok: false, error: "PromptWard's local model did not respond in time.", status: "error" };
   });
 }
 
