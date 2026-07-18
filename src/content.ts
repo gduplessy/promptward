@@ -8,6 +8,7 @@ import { withTimeout } from "./shared/timeout";
 
 const replaying = new WeakSet<HTMLElement>();
 const inFlight = new WeakSet<HTMLElement>();
+let debugSettingsPromise: Promise<DebugSettings> | undefined;
 
 document.addEventListener("click", onClickCapture, true);
 document.addEventListener("keydown", onKeydownCapture, true);
@@ -322,8 +323,6 @@ async function logDebug(input: Omit<DebugLogInput, "context" | "url" | "version"
   console.debug("[PromptWard]", event);
   await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.debugLog, event }).catch(() => undefined);
 }
-
-let debugSettingsPromise: Promise<DebugSettings> | undefined;
 
 async function getDebugSettings(): Promise<DebugSettings> {
   debugSettingsPromise ??= chrome.runtime
