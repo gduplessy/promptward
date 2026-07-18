@@ -91,7 +91,7 @@ function onSubmitCapture(event: SubmitEvent): void {
 
 async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor: EditorHandle | undefined, debugId = crypto.randomUUID()): Promise<void> {
   if (!editor) {
-    await logDebug({
+    void logDebug({
       debugId,
       stage: "editor-missed",
       level: "warn",
@@ -101,7 +101,7 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
   }
   if (replaying.has(trigger)) {
     replaying.delete(trigger);
-    await logDebug({
+    void logDebug({
       debugId,
       stage: "replay-allowed",
       level: "debug",
@@ -117,13 +117,15 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
 
   const original = editor.getText();
   if (!original.trim()) {
-    const emptySummary = await textSummary(original);
-    await logDebug({
-      debugId,
-      stage: "empty-editor-ignored",
-      level: "info",
-      metadata: emptySummary
-    });
+    void (async () => {
+      const emptySummary = await textSummary(original);
+      void logDebug({
+        debugId,
+        stage: "empty-editor-ignored",
+        level: "info",
+        metadata: emptySummary
+      });
+    })().catch(() => undefined);
     return;
   }
 
@@ -132,27 +134,29 @@ async function protectAndMaybeSubmit(event: Event, trigger: HTMLElement, editor:
   inFlight.add(trigger);
 
   try {
-    const originalSummary = await textSummary(original);
-    await logDebug({
-      debugId,
-      stage: "editor-read",
-      level: "debug",
-      metadata: {
-        eventType: event.type,
-        trigger: describeElement(trigger),
-        editor: describeElement(editor.element),
-        ...originalSummary
-      },
-      raw: { original }
-    });
-    await logDebug({
-      debugId,
-      stage: "protect-request",
-      level: "debug",
-      metadata: originalSummary
-    });
+    void (async () => {
+      const originalSummary = await textSummary(original);
+      void logDebug({
+        debugId,
+        stage: "editor-read",
+        level: "debug",
+        metadata: {
+          eventType: event.type,
+          trigger: describeElement(trigger),
+          editor: describeElement(editor.element),
+          ...originalSummary
+        },
+        raw: { original }
+      });
+      void logDebug({
+        debugId,
+        stage: "protect-request",
+        level: "debug",
+        metadata: originalSummary
+      });
+    })().catch(() => undefined);
     const response = await protectText(original, debugId);
-    await logDebug({
+    void logDebug({
       debugId,
       stage: "protect-response",
       level: response.ok ? "debug" : "error",
@@ -184,7 +188,7 @@ async function handleProtectResponse(
   }
 
   if (!response.changed) {
-    await logDebug({
+    void logDebug({
       debugId,
       stage: "unchanged-replay",
       level: "warn",
@@ -204,16 +208,19 @@ async function handleProtectResponse(
   if (decision === "confirm") {
     const applied = await editor.setText(response.safeText);
     const readback = editor.getText();
-    await logDebug({
-      debugId,
-      stage: "editor-set",
-      level: applied ? "debug" : "error",
-      metadata: {
-        ...(await textSummary(readback)),
-        readbackMatchesRedacted: applied
-      },
-      raw: { redacted: response.safeText, readback }
-    });
+    void (async () => {
+      const readbackSummary = await textSummary(readback);
+      void logDebug({
+        debugId,
+        stage: "editor-set",
+        level: applied ? "debug" : "error",
+        metadata: {
+          ...readbackSummary,
+          readbackMatchesRedacted: applied
+        },
+        raw: { redacted: response.safeText, readback }
+      });
+    })().catch(() => undefined);
     if (!applied) {
       // No input strategy made the editor's own text actually reflect the redacted
       // value (common with rich-text composers that keep their own internal state) -
@@ -229,7 +236,7 @@ async function handleProtectResponse(
     replay(trigger, debugId);
   } else if (decision === "original") {
     await editor.setText(original);
-    await logDebug({
+    void logDebug({
       debugId,
       stage: "review-send-original",
       level: "info",
@@ -238,7 +245,7 @@ async function handleProtectResponse(
     replay(trigger, debugId);
   } else {
     await editor.setText(original);
-    await logDebug({
+    void logDebug({
       debugId,
       stage: "review-cancelled",
       level: "info",
@@ -267,7 +274,7 @@ async function handleFailure(error: string, original: string, trigger: HTMLEleme
   const decision = await showReviewModal({ original, error });
   if (decision !== "retry") return;
   const response = await protectText(original, debugId);
-  await logDebug({
+  void logDebug({
     debugId,
     stage: "retry-protect-response",
     level: response.ok ? "debug" : "error",
