@@ -11,9 +11,10 @@ when done.
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
 | 001  | Characterization tests for the content-script protection flow | P1 | M | — | DONE |
-| 002  | Ignore Enter during IME composition | P1 | S | 001 | TODO |
+| 002  | Ignore Enter during IME composition | P1 | S | 001 | DONE |
 | 003  | Retry path honors the review contract | P1 | S | 001 | TODO |
 | 004  | Timeouts on worker/protect requests | P1 | M | 001, 003 | TODO |
+| 013  | Fix debugSettingsPromise TDZ crash on content-script init | P1 | S | 001, 002 | TODO |
 | 005  | Serialize offscreen-document creation | P2 | S | — | TODO |
 | 006  | CI workflow (verify, typecheck, test, build) | P2 | S | — | TODO |
 | 007  | Vendor only the ORT files the runtime loads | P2 | M | 006 (soft) | TODO |
@@ -39,6 +40,11 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 007 and 012 interact: 012 removes the WebGPU toggle, which is why 007's
   keep-list excludes the `jsep` ORT files. If 012 is REJECTED (WebGPU gets
   wired instead), 007's keep-list must add the `jsep` pair.
+- **013 (new, added during execution)** fixes a pre-existing TDZ crash found
+  while reviewing plan 001/002 that makes `npm test` exit 1 even when every
+  test passes. It must land before 006 (CI) — otherwise CI reports every
+  green run as failed. Execute after 001+002 (both touch the same file
+  region); ideally before 003/004 too, though it doesn't strictly block them.
 
 ## Findings considered and rejected
 
@@ -70,7 +76,23 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   plan 001 (tests-only scope). No plan currently owns this — worth a follow-up
   fix (hoist the `let debugSettingsPromise` above its first use, or otherwise
   ensure the init-log call can't race the declaration) before or alongside
-  plan 002/003/004 since they touch the same file.
+  plan 002/003/004 since they touch the same file. **Confirmed during plan
+  002's review**: this bug makes `npm test`/`npm run vitest run` exit 1 even
+  though every test passes (Vitest counts the unhandled rejection as an
+  "Errors: 1" and reflects it in the process exit code). This is a **new
+  finding requiring plan 013** before plan 006 (CI) lands, since CI would
+  otherwise mark every green test run as a failure.
+- **Plan 002 (DONE)**: dispatched to a manually created worktree (`git worktree
+  add`) after the Agent tool's built-in worktree isolation based its first
+  attempt off a stale pre-plan-001 snapshot (`a6293e1`) instead of current
+  master — that attempt correctly hit its own STOP condition (missing
+  `tests/content-flow.test.ts`) and was discarded without any changes.
+  Also surfaced a worktree-checkout artifact (not a plan defect): a fresh
+  `git worktree add` on this machine reconverts vendored `public/ort/*.mjs`
+  line endings, breaking `verify:assets`/`npm run build` checksum comparison
+  until the affected files are force-recheckout with
+  `git -c core.autocrlf=false checkout -- public/`. Apply that before running
+  `npm run build` in any future manually created worktree.
 
 ## Direction options (maintainer decisions, not defects — no plans written)
 
