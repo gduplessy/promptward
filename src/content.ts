@@ -35,6 +35,8 @@ function onClickCapture(event: MouseEvent): void {
 }
 
 function onKeydownCapture(event: KeyboardEvent): void {
+  // Enter during IME composition confirms the composition, not the send.
+  if (event.isComposing || event.keyCode === 229) return;
   if (event.key !== "Enter") return;
   if (!(event.metaKey || event.ctrlKey || event.shiftKey === false)) return;
   const editor = findEditor(event.target);
