@@ -20,6 +20,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-This license covers PromptWard's own source code only. See NOTICE for
+This license covers PromptWard's own source code only. See [NOTICE.md](./NOTICE.md) for
 third-party model and runtime attribution (Rampart model, ONNX Runtime Web),
 which carry their own separate licenses.

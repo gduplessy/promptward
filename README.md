@@ -5,7 +5,7 @@
 [![Chrome 116+](https://img.shields.io/badge/Chrome-116%2B-34a853)](src/manifest.ts)
 [![On-device AI](https://img.shields.io/badge/AI-100%25%20on--device-0f766e)](#how-it-works)
 [![No telemetry](https://img.shields.io/badge/telemetry-none-0f766e)](./PRIVACY.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE.md)
 [![Downloads](https://img.shields.io/github/downloads/gduplessy/promptward/total?color=blue)](https://github.com/gduplessy/promptward/releases)
 
 PromptWard is a Manifest V3 Chrome extension that catches PII in your prompts before it reaches ChatGPT, Claude, Gemini, Perplexity, or Mistral. Detection and redaction run entirely on-device via a local ONNX model plus deterministic heuristics — no prompt text, no placeholder map, and no telemetry ever leaves your machine.
@@ -67,7 +67,7 @@ PromptWard is a Manifest V3 Chrome extension that catches PII in your prompts be
 
 ## Privacy
 
-See [PRIVACY.md](./PRIVACY.md) for the full data-handling posture, and [NOTICE](./NOTICE) for third-party model/runtime attribution (Rampart model, ONNX Runtime Web).
+See [PRIVACY.md](./PRIVACY.md) for the full data-handling posture, and [NOTICE.md](./NOTICE.md) for third-party model/runtime attribution (Rampart model, ONNX Runtime Web).
 
 ## Development
 
@@ -113,4 +113,4 @@ PromptWard's local detection is built on the [Rampart](https://huggingface.co/na
 
 ## License
 
-PromptWard's own code is [MIT licensed](./LICENSE). The vendored Rampart model (CC-BY-4.0) and ONNX Runtime Web assets carry their own separate licenses — see [NOTICE](./NOTICE).
+PromptWard's own code is [MIT licensed](./LICENSE.md). The vendored Rampart model (CC-BY-4.0) and ONNX Runtime Web assets carry their own separate licenses — see [NOTICE.md](./NOTICE.md).

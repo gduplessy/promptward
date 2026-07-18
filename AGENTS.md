@@ -14,7 +14,7 @@ text or telemetry ever leaves the machine.
 
 - **Repo:** https://github.com/gduplessy/promptward
 - **License:** MIT (code); vendored Rampart model (CC-BY-4.0) and ONNX Runtime
-  Web assets carry separate licenses — see [NOTICE](./NOTICE).
+  Web assets carry separate licenses — see [NOTICE.md](./NOTICE.md).
 - **Privacy posture:** [PRIVACY.md](./PRIVACY.md). The no-telemetry guarantee
   is load-bearing — never add a network call that sends prompt text, the
   placeholder map, or anything user-derived off-device.
