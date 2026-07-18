@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { assetManifestPath, listPublicAssetFiles, modelDir, ortDir, requiredModelFiles, root, sha256 } from "./assets.mjs";
+import { assetManifestPath, listPublicAssetFiles, modelDir, ortDir, requiredModelFiles, requiredOrtFiles, root, sha256 } from "./assets.mjs";
 
 const failures = [];
 
@@ -8,12 +8,8 @@ for (const file of requiredModelFiles) {
   await expectFile(path.join(modelDir, file));
 }
 
-const ortFiles = await readdirSafe(ortDir);
-if (!ortFiles.some((file) => file.endsWith(".wasm"))) {
-  failures.push("Missing public/ort/*.wasm");
-}
-if (!ortFiles.some((file) => file.endsWith(".mjs"))) {
-  failures.push("Missing public/ort/*.mjs");
+for (const file of requiredOrtFiles) {
+  await expectFile(path.join(ortDir, file));
 }
 
 const manifest = await readAssetManifest();
@@ -45,14 +41,6 @@ async function expectFile(filePath) {
     if (!stat.isFile() || stat.size === 0) failures.push(`Missing or empty ${path.relative(root, filePath)}`);
   } catch {
     failures.push(`Missing ${path.relative(root, filePath)}`);
-  }
-}
-
-async function readdirSafe(dir) {
-  try {
-    return await fs.readdir(dir);
-  } catch {
-    return [];
   }
 }
 
