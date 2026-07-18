@@ -182,19 +182,34 @@ async function sendToOffscreen(message: PromptWardMessage): Promise<unknown> {
   return chrome.runtime.sendMessage(message);
 }
 
-async function ensureOffscreenDocument(): Promise<void> {
+let offscreenCreation: Promise<void> | undefined;
+
+function ensureOffscreenDocument(): Promise<void> {
+  const next = (offscreenCreation ?? Promise.resolve())
+    .catch(() => undefined) // a past failure must not poison future attempts
+    .then(() => createOffscreenDocumentIfMissing());
+  offscreenCreation = next;
+  return next;
+}
+
+async function createOffscreenDocumentIfMissing(): Promise<void> {
   const contexts = await chrome.runtime.getContexts({
     contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
     documentUrls: [chrome.runtime.getURL(OFFSCREEN_PATH)]
   });
-
   if (contexts.length > 0) return;
-
-  await chrome.offscreen.createDocument({
-    url: OFFSCREEN_PATH,
-    reasons: [chrome.offscreen.Reason.WORKERS],
-    justification: "Runs the local Rampart model worker outside the MV3 service worker lifecycle."
-  });
+  try {
+    await chrome.offscreen.createDocument({
+      url: OFFSCREEN_PATH,
+      reasons: [chrome.offscreen.Reason.WORKERS],
+      justification: "Runs the local Rampart model worker outside the MV3 service worker lifecycle."
+    });
+  } catch (error) {
+    // A concurrent path (or a pre-existing document the getContexts snapshot
+    // missed) already created it - that is success, not failure.
+    if (error instanceof Error && /single offscreen document/i.test(error.message)) return;
+    throw error;
+  }
 }
 
 async function registerCustomDomainScripts(): Promise<void> {
