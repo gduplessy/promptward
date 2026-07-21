@@ -1,5 +1,6 @@
 # PromptWard
 
+[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Install-1f6feb?logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/promptward/kpbdhbmghkbnnenjkbjgobldabnijkkm)
 [![Latest release](https://img.shields.io/github/v/release/gduplessy/promptward?label=release&color=1f6feb)](https://github.com/gduplessy/promptward/releases/latest)
 [![Manifest V3](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-1f6feb)](https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3)
 [![Chrome 116+](https://img.shields.io/badge/Chrome-116%2B-34a853)](src/manifest.ts)
@@ -16,6 +17,7 @@ PromptWard is a Manifest V3 Chrome extension that catches PII in your prompts be
 
 - [Features](#features)
 - [Supported sites](#supported-sites)
+- [Install from the Chrome Web Store](#install-from-the-chrome-web-store)
 - [Install (no build required)](#install-no-build-required)
 - [How it works](#how-it-works)
 - [Known limitations](#known-limitations)
@@ -43,7 +45,13 @@ PromptWard is a Manifest V3 Chrome extension that catches PII in your prompts be
 | Perplexity | `www.perplexity.ai` |
 | Mistral | `chat.mistral.ai` |
 
+## Install from the Chrome Web Store
+
+The fastest way to get PromptWard: [install it from the Chrome Web Store](https://chromewebstore.google.com/detail/promptward/kpbdhbmghkbnnenjkbjgobldabnijkkm). Updates ship automatically, and it's the same on-device detection as the source in this repo — no prompt text ever leaves your machine.
+
 ## Install (no build required)
+
+Prefer to sideload from a release zip instead? Follow these steps:
 
 1. Download the latest `promptward-extension.zip` from [Releases](https://github.com/gduplessy/promptward/releases/latest).
 2. Unzip it somewhere permanent (don't delete the folder afterward — Chrome loads the extension from it).
